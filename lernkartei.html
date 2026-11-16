@@ -1,0 +1,1246 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<title>Lernkartei</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+/* Layout: Karteikasten. Oben eine feste Leiste mit Set und Lernmodus, darunter eine Arbeitsfläche.
+   Antworten stehen wie im Schulheft: Pronomen im Rand links der roten Linie, Antwort auf der blauen Zeile. */
+:root{
+  --bg:#f3f6fc; --surface:#ffffff; --ink:#16203a; --muted:#5a6682; --line:#d3dbee;
+  --accent:#2743c4; --accent-soft:#e5eafb; --on-accent:#ffffff;
+  --red:#c42f3a; --red-soft:#fbe8ea; --green:#1a7a50; --green-soft:#e0f3e9;
+  --display:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;
+  --body:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0f131e; --surface:#181e2e; --ink:#e8ecf6; --muted:#9ca7c1; --line:#2c3652;
+  --accent:#93a8ff; --accent-soft:#222c4e; --on-accent:#0f131e;
+  --red:#ff858c; --red-soft:#3a1f26; --green:#6fd3a0; --green-soft:#16332a; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0f131e; --surface:#181e2e; --ink:#e8ecf6; --muted:#9ca7c1; --line:#2c3652;
+  --accent:#93a8ff; --accent-soft:#222c4e; --on-accent:#0f131e;
+  --red:#ff858c; --red-soft:#3a1f26; --green:#6fd3a0; --green-soft:#16332a; color-scheme:dark }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:1.0625rem;line-height:1.5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+h1,h2,h3,h4{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.15}
+h2{font-size:1.25rem;font-weight:700}
+p{margin:0}
+button,input,select,textarea{font-family:var(--body)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* Leiste */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--bg);border-bottom:1px solid var(--line)}
+.top-in,.modes,.wrap{max-width:58rem;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top-in{display:flex;align-items:center;gap:.75rem;padding-block:.7rem .55rem}
+.back{font:600 .95rem var(--body);border:1px solid var(--line);background:var(--surface);color:var(--accent);border-radius:999px;padding:.35rem .8rem;cursor:pointer;white-space:nowrap}
+.ttl{display:flex;flex-direction:column;min-width:0}
+.brand{font-family:var(--display);font-weight:700;font-size:1.35rem;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brand-sub{color:var(--muted);font-size:.9rem}
+.modes{display:flex;gap:.3rem;overflow-x:auto;scrollbar-width:none;padding-bottom:.6rem}
+.modes::-webkit-scrollbar{display:none}
+.modes button{font:600 .98rem var(--body);padding:.45rem .85rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;cursor:pointer;white-space:nowrap;flex:none}
+.modes button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+
+.wrap{padding-block:1.25rem 4rem;display:flex;flex-direction:column;gap:1.1rem}
+.panel{display:flex;flex-direction:column;gap:1.1rem}
+.lead{color:var(--muted);max-width:62ch}
+.small{color:var(--muted);font-size:.95rem;max-width:65ch}
+.opts{display:flex;flex-wrap:wrap;gap:.5rem 1.1rem;color:var(--muted);font-size:.95rem;align-items:center}
+.opts label{display:flex;gap:.45rem;align-items:center;cursor:pointer;flex-wrap:wrap}
+.chips,.seg{display:flex;flex-wrap:wrap;gap:.35rem}
+.chips button,.seg button{font:600 .95rem var(--body);padding:.4rem .8rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;cursor:pointer}
+.chips button[aria-pressed="true"],.seg button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+
+/* Bibliothek */
+.lib{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fill,minmax(15.5rem,1fr))}
+.setcard{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:1rem;cursor:pointer;color:var(--ink);
+  display:flex;flex-direction:column;gap:.55rem;min-width:0;font-size:1rem}
+.setcard:hover{border-color:var(--accent)}
+.setcard b{font-family:var(--display);font-size:1.2rem;line-height:1.2}
+.setcard .meta{color:var(--muted);font-size:.93rem}
+.tag{display:inline-block;font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:.1rem .45rem;align-self:flex-start}
+.bar{height:.5rem;background:var(--line);border-radius:999px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--green);width:0;transition:width .3s}
+.meter{display:flex;flex-direction:column;gap:.35rem;font-size:.95rem;color:var(--muted)}
+
+/* Blatt */
+.sheet{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:1.25rem 1.1rem;display:flex;flex-direction:column;gap:1rem}
+.sheet.empty .prompt,.sheet.empty .row,.sheet.empty .accents,.sheet.empty .actions{display:none}
+.prompt{display:flex;flex-wrap:wrap;align-items:baseline;gap:.25rem .9rem}
+.prompt .de{font-family:var(--display);font-size:clamp(1.5rem,5vw,2rem);font-weight:700}
+.prompt .inf{color:var(--accent);font-weight:600;font-size:1.15rem}
+.prompt .hint{color:var(--muted);font-size:.95rem;flex-basis:100%}
+.row{display:grid;grid-template-columns:7.6rem minmax(0,1fr);align-items:end}
+.row .pron{text-align:right;padding:.35rem .7rem .35rem 0;color:var(--muted);font-weight:600;border-right:2px solid var(--red);
+  align-self:stretch;display:flex;align-items:flex-end;justify-content:flex-end}
+.row .cell{padding-left:.7rem;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:.2rem}
+.row input{width:100%;font:600 1.35rem var(--body);color:var(--ink);background:transparent;border:0;border-bottom:2px solid var(--accent);border-radius:0;padding:.3rem .1rem}
+.row input:focus-visible{outline:none;background:var(--accent-soft)}
+.row.ok input{border-bottom-color:var(--green);color:var(--green)}
+.row.bad input{border-bottom-color:var(--red);color:var(--red);text-decoration:line-through}
+.row .fix{font-weight:700;color:var(--green);font-size:1.05rem}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;width:100%}
+.choice{font:600 1.1rem var(--body);padding:.7rem .6rem;min-height:3rem;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px;cursor:pointer;overflow-wrap:anywhere}
+.choice:disabled{cursor:default;opacity:.75}
+.choice.ok{background:var(--green-soft);border-color:var(--green);color:var(--green);opacity:1}
+.choice.bad{background:var(--red-soft);border-color:var(--red);color:var(--red);opacity:1;text-decoration:line-through}
+/* Reihenfolge im Blatt: Frage, Eingabe, Akzente, Knöpfe, dann Rückmeldung. So bleibt «Prüfen» direkt unter dem Feld, auch bei offener Tastatur. */
+form.sheet>.fb{order:8} form.sheet>#f-again,form.sheet>#u-again{order:9}
+form.sheet{scroll-margin-top:.5rem}
+body.typing .top{position:static}
+@media (max-height:600px){.top{position:static}}
+.accents{display:flex;gap:.4rem;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;align-items:center;color:var(--muted);font-size:.9rem}
+.accents::-webkit-scrollbar{display:none}
+.accents button{flex:none}
+.accents button{font:600 1.1rem var(--body);min-width:2.4rem;padding:.3rem .5rem;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px;cursor:pointer}
+.fb{min-height:1.5em;padding:.6rem .8rem;border-radius:6px;background:var(--bg);color:var(--muted)}
+.fb.ok{background:var(--green-soft);color:var(--green)}
+.fb.bad{background:var(--red-soft);color:var(--red)}
+.fb b{font-weight:700}
+.fb .note{display:block;color:var(--ink);margin-top:.25rem}
+.actions{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center}
+.actions.center{justify-content:center}
+.btn{font:700 1.05rem var(--body);padding:.65rem 1.3rem;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent);border-color:var(--line);font-weight:600}
+.btn.no{background:var(--red-soft);border-color:var(--red);color:var(--red)}
+.btn.yes{background:var(--green-soft);border-color:var(--green);color:var(--green)}
+.mini{font:600 .9rem var(--body);padding:.25rem .6rem;border:1px solid var(--line);background:var(--surface);color:var(--accent);border-radius:6px;cursor:pointer}
+select{font:600 1rem var(--body);padding:.45rem .6rem;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);max-width:100%}
+textarea,.fields input,.search{width:100%;font:400 1rem var(--body);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:.55rem .6rem}
+.search{background:var(--surface)}
+textarea{min-height:7rem;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9rem}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));gap:.7rem}
+.fields label{display:flex;flex-direction:column;gap:.2rem;font-weight:600;color:var(--muted);font-size:.95rem;min-width:0}
+
+/* Kärtchen: Karteikarte mit roter Kopflinie und blauen Zeilen */
+.count{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink);margin-left:auto}
+.flash{position:relative;width:100%;max-width:34rem;margin:0 auto;height:17rem;border:0;background:none;padding:0;cursor:pointer;perspective:1200px;color:var(--ink);display:block}
+.face{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;padding:3.2rem 1.2rem 1.2rem;
+  border:1px solid var(--line);border-radius:10px;background-color:var(--surface);
+  background-image:linear-gradient(var(--red),var(--red)),repeating-linear-gradient(to bottom,transparent 0 1.9rem,var(--line) 1.9rem calc(1.9rem + 1px));
+  background-size:100% 2px,100% 100%;background-position:0 2.6rem,0 2.6rem;background-repeat:no-repeat,no-repeat;
+  -webkit-backface-visibility:hidden;backface-visibility:hidden;transition:transform .4s}
+.face.back{transform:rotateY(180deg)}
+.flash.flip .front{transform:rotateY(-180deg)}
+.flash.flip .back{transform:rotateY(0deg)}
+.flash.snap .face{transition:none}
+.face .side{position:absolute;top:.75rem;left:1rem;font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.face .word{font-family:var(--display);font-weight:700;font-size:clamp(1.6rem,6vw,2.4rem);text-align:center;overflow-wrap:anywhere;line-height:1.15}
+.face .word,.face .extra{display:block;width:100%;white-space:normal}
+.face .extra{color:var(--muted);font-size:.95rem;text-align:center}
+.face .tap{position:absolute;bottom:.6rem;font-size:.85rem;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.face,.bar i,.tile{transition:none!important}}
+
+/* Zuordnen */
+.timer{font-family:var(--display);font-weight:700;font-size:1.4rem;color:var(--ink);font-variant-numeric:tabular-nums}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr));gap:.5rem}
+.tile{font:600 1.05rem var(--body);min-height:4.2rem;padding:.6rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;cursor:pointer;
+  overflow-wrap:anywhere;transition:opacity .25s,transform .15s}
+.tile.sel{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.tile.no{border-color:var(--red);background:var(--red-soft);color:var(--red)}
+.tile.gone{opacity:0;pointer-events:none}
+
+/* Test */
+.qs{display:flex;flex-direction:column;gap:.7rem}
+#x-qs{display:flex;flex-direction:column;gap:.7rem}
+.q{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:.9rem 1rem;margin:0;display:flex;flex-direction:column;gap:.55rem;min-width:0}
+.q legend{float:left;width:100%;padding:0;font-weight:700;font-size:1.08rem}
+.q legend small{font-weight:400;color:var(--muted)}
+.q .ans{display:flex;flex-wrap:wrap;gap:.4rem .9rem;clear:both}
+.q .ans label{display:flex;gap:.4rem;align-items:center;cursor:pointer}
+.q input[type=text]{width:100%;font:600 1.1rem var(--body);padding:.45rem .55rem;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);clear:both}
+.q.ok{border-color:var(--green)} .q.bad{border-color:var(--red)}
+.q .corr{font-weight:600;color:var(--green)} .q.bad .verdict{color:var(--red);font-weight:700} .q.ok .verdict{color:var(--green);font-weight:700}
+
+/* Liste */
+.list{display:flex;flex-direction:column;gap:.35rem}
+.list h3{font-size:1.1rem;margin-top:.7rem}
+.item{background:var(--surface);border:1px solid var(--line);border-radius:6px;min-width:0}
+.item summary,.item.plain{display:flex;align-items:baseline;gap:.2rem .7rem;flex-wrap:wrap;padding:.55rem .8rem}
+.item summary{cursor:pointer;list-style:none}
+.item summary::-webkit-details-marker{display:none}
+.item summary::before{content:"+";font-weight:700;color:var(--accent);width:.8rem;flex:none}
+.item[open] summary::before{content:"−"}
+.item b{font-family:var(--display);font-size:1.1rem}
+.item .d{color:var(--muted);flex:1;min-width:0}
+.conj{padding:.2rem .8rem .8rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(14.5rem,1fr));gap:.8rem 1.2rem}
+.conj h4{font-size:.8rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-family:var(--body);font-weight:700;margin-bottom:.2rem}
+.forms{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,auto);grid-auto-flow:column;gap:.1rem .8rem;font-size:.98rem}
+.forms.one{grid-template-columns:1fr;grid-template-rows:none;grid-auto-flow:row}
+.forms .t{font-weight:700;color:var(--accent)}
+.forms small{color:var(--muted);font-size:inherit}
+.conj .note{grid-column:1/-1;font-size:.93rem;color:var(--muted)}
+details.box{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:.7rem .9rem}
+details.box>summary{cursor:pointer;font-family:var(--display);font-weight:700;font-size:1.1rem}
+details.box[open]>summary{margin-bottom:.8rem}
+details.box>.in{display:flex;flex-direction:column;gap:.9rem}
+.rules{display:grid;gap:.6rem;grid-template-columns:repeat(auto-fit,minmax(15.5rem,1fr))}
+.rule{background:var(--bg);border-radius:6px;padding:.7rem .8rem;min-width:0}
+.rule h3{font-size:1rem;margin-bottom:.2rem}
+.rule p{font-size:.95rem}
+.rule em{font-style:normal;font-weight:700;color:var(--accent)}
+</style>
+
+<div class="top">
+  <div class="top-in">
+    <button class="back" id="home" type="button" hidden>‹ Alle Sets</button>
+    <div class="ttl"><span class="brand" id="brand">Lernkartei</span><span class="brand-sub" id="brand-sub">Wörter und Verben, Französisch und Englisch</span></div>
+  </div>
+  <nav class="modes" id="modes" aria-label="Lernmodus" hidden>
+    <button data-mode="karten" aria-selected="false">Kärtchen</button>
+    <button data-mode="lernen" aria-selected="false">Lernen</button>
+    <button data-mode="zuordnen" aria-selected="false">Zuordnen</button>
+    <button data-mode="test" aria-selected="false">Test</button>
+    <button data-mode="formen" aria-selected="false">Verbformen</button>
+    <button data-mode="liste" aria-selected="false">Liste</button>
+  </nav>
+</div>
+
+<main class="wrap">
+  <!-- BIBLIOTHEK -->
+  <section class="panel" id="v-lib">
+    <div class="lib" id="lib-grid"></div>
+    <h2>Neues Set anlegen</h2>
+    <form class="sheet" id="n-form" autocomplete="off">
+      <div class="fields">
+        <label>Name <input id="n-name" type="text" placeholder="z. B. Unité 3 Vocabulaire"></label>
+        <label>Sprache <select id="n-lang"><option value="fr">Französisch</option><option value="en">Englisch</option><option value="xx">Andere Sprache</option></select></label>
+      </div>
+      <p class="fb" id="n-fb" aria-live="polite">Danach kannst du Wörter eintippen oder eine Liste aus Quizlet einfügen.</p>
+      <div class="actions"><button class="btn" type="submit">Set anlegen</button></div>
+    </form>
+    <details class="box"><summary>Backup und Zurücksetzen</summary><div class="in">
+      <p class="small">Fortschritt und eigene Sets als Text. Damit ziehst du auf ein anderes Gerät um: hier erzeugen und kopieren, dort einfügen und einspielen.</p>
+      <textarea id="b-text" spellcheck="false" aria-label="Backup"></textarea>
+      <p class="fb" id="b-fb" aria-live="polite">Einspielen ersetzt Fortschritt und eigene Sets auf diesem Gerät.</p>
+      <div class="actions"><button class="btn" type="button" id="b-make">Backup erzeugen</button><button class="btn ghost" type="button" id="b-copy">Kopieren</button><button class="btn ghost" type="button" id="b-load">Backup einspielen</button><button class="btn ghost" type="button" id="reset">Fortschritt zurücksetzen</button></div>
+    </div></details>
+  </section>
+
+  <div class="opts" id="filter" hidden>
+    <label>Gruppe <select id="opt-group"><option value="all">Alle Verben</option><option value="er">Nur -er</option><option value="dreir">Nur -dre und -ir</option><option value="irr">Nur unregelmässige</option></select></label>
+    <label><input type="checkbox" id="opt-ebenso" checked> Auch die 41 «Ebenso»-Verben</label>
+  </div>
+
+  <!-- KÄRTCHEN -->
+  <section class="panel" id="v-karten" hidden>
+    <div class="opts">
+      <label>Vorderseite <select id="k-dir"><option value="de">Deutsch</option><option value="t">Fremdsprache</option></select></label>
+      <button class="mini" type="button" id="k-shuffle">Neu mischen</button>
+      <span class="count" id="k-count"></span>
+    </div>
+    <button type="button" class="flash" id="k-card">
+      <span class="face front"><span class="side" id="k-fl"></span><span class="word" id="k-front"></span><span class="tap">Tippen zum Umdrehen</span></span>
+      <span class="face back"><span class="side" id="k-bl"></span><span class="word" id="k-back"></span><span class="extra" id="k-extra"></span></span>
+    </button>
+    <div class="actions center" id="k-actions"><button class="btn no" type="button" id="k-no">Noch nicht</button><button class="btn yes" type="button" id="k-yes">Kann ich</button></div>
+    <div class="sheet" id="k-done" hidden><p class="fb ok" id="k-sum"></p><div class="actions"><button class="btn" type="button" id="k-open">Nur die offenen nochmal</button><button class="btn ghost" type="button" id="k-all">Alle nochmal</button></div></div>
+  </section>
+
+  <!-- LERNEN -->
+  <section class="panel" id="v-lernen" hidden>
+    <div class="opts"><label><input type="checkbox" id="opt-mc2" checked> Neues zuerst als Multiple Choice</label></div>
+    <form class="sheet" id="u-form" autocomplete="off">
+      <div class="prompt"><span class="de" id="u-de"></span><span class="inf" id="u-inf"></span><span class="hint" id="u-hint"></span></div>
+      <div class="row" id="u-row"><label class="pron" for="u-in" id="u-pron"></label>
+        <div class="cell"><input id="u-in" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" aria-describedby="u-fb"><div class="choices" id="u-ch" hidden></div></div></div>
+      <div class="accents" data-for="u-in"></div>
+      <p class="fb" id="u-fb" aria-live="polite"></p>
+      <button class="btn ghost" type="button" id="u-again" hidden style="align-self:flex-start">Diese Auswahl nochmal üben</button>
+      <div class="actions"><button class="btn" type="submit" id="u-btn">Prüfen</button><button class="btn ghost" type="button" id="u-skip">Weiss ich nicht</button><button class="btn ghost" type="button" id="u-ovr" hidden>War nur ein Tippfehler</button></div>
+    </form>
+    <div class="meter"><div class="bar"><i id="u-bar"></i></div><span id="u-prog"></span></div>
+  </section>
+
+  <!-- ZUORDNEN -->
+  <section class="panel" id="v-zuordnen" hidden>
+    <div class="opts"><span class="timer" id="m-time">0.0 s</span><span id="m-best"></span><button class="mini" type="button" id="m-new" style="margin-left:auto">Neue Runde</button></div>
+    <div class="tiles" id="m-grid"></div>
+    <p class="fb" id="m-fb" aria-live="polite">Tippe zwei Felder an, die zusammengehören. Die Zeit läuft ab dem ersten Tippen.</p>
+  </section>
+
+  <!-- TEST -->
+  <section class="panel" id="v-test" hidden>
+    <form class="sheet" id="x-cfg" autocomplete="off">
+      <div class="opts">
+        <label>Fragen <select id="x-n"><option value="10">10</option><option value="20">20</option><option value="40">40</option></select></label>
+        <label><input type="checkbox" id="x-w" checked> Schreiben</label>
+        <label><input type="checkbox" id="x-mc" checked> Multiple Choice</label>
+        <label><input type="checkbox" id="x-tf" checked> Richtig oder falsch</label>
+        <label id="x-vf-l"><input type="checkbox" id="x-vf" checked> <span id="x-vf-t">Verbformen</span></label>
+      </div>
+      <div class="actions"><button class="btn" type="submit">Test starten</button></div>
+    </form>
+    <p class="fb" id="x-res" aria-live="polite" hidden></p>
+    <form class="qs" id="x-form" autocomplete="off" hidden>
+      <div id="x-qs"></div>
+      <div class="actions"><button class="btn" type="submit" id="x-submit">Abgeben</button><button class="btn ghost" type="button" id="x-new">Neuer Test</button></div>
+    </form>
+  </section>
+
+  <!-- VERBFORMEN -->
+  <section class="panel" id="v-formen" hidden>
+    <div class="chips" id="tenses" role="group" aria-label="Zeit"></div>
+    <div class="opts">
+      <div class="seg" id="sub"><button type="button" data-sub="einzeln" aria-pressed="true">Einzelne Formen</button><button type="button" data-sub="tabelle" aria-pressed="false">Ganze Tabelle</button></div>
+      <label><input type="checkbox" id="opt-hide"> Nur Deutsch zeigen</label>
+      <label><input type="checkbox" id="opt-mc" checked> Neues zuerst als Multiple Choice</label>
+    </div>
+    <div class="panel" id="fs-einzeln">
+      <form class="sheet" id="f-form" autocomplete="off">
+        <div class="prompt"><span class="de" id="f-de"></span><span class="inf" id="f-inf"></span><span class="hint" id="f-hint"></span></div>
+        <div class="row" id="f-row"><label class="pron" for="f-in" id="f-pron"></label>
+          <div class="cell"><input id="f-in" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" aria-describedby="f-fb"><div class="choices" id="f-ch" hidden></div></div></div>
+        <div class="accents" data-for="f-in"></div>
+        <p class="fb" id="f-fb" aria-live="polite"></p>
+        <button class="btn ghost" type="button" id="f-again" hidden style="align-self:flex-start">Diese Auswahl nochmal üben</button>
+        <div class="actions"><button class="btn" type="submit" id="f-btn">Prüfen</button><button class="btn ghost" type="button" id="f-skip">Weiss ich nicht</button><button class="btn ghost" type="button" id="f-ovr" hidden>War nur ein Tippfehler</button></div>
+      </form>
+      <div class="meter"><div class="bar"><i id="f-bar"></i></div><span id="f-prog"></span></div>
+    </div>
+    <div class="panel" id="fs-tabelle" hidden>
+      <div class="actions"><select id="t-select" aria-label="Verb wählen"></select><button class="btn ghost" type="button" id="t-random">Zufälliges Verb</button></div>
+      <form class="sheet" id="t-form" autocomplete="off">
+        <div class="prompt"><span class="de" id="t-de"></span><span class="inf" id="t-inf"></span><span class="hint" id="t-hint"></span></div>
+        <div id="t-rows" style="display:flex;flex-direction:column;gap:.55rem"></div>
+        <div class="accents" data-for="table"></div>
+        <p class="fb" id="t-fb" aria-live="polite"></p>
+        <div class="actions"><button class="btn" type="submit" id="t-btn">Prüfen</button></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- LISTE -->
+  <section class="panel" id="v-liste" hidden>
+    <form class="sheet" id="o-form" autocomplete="off" hidden>
+      <h2>Wort hinzufügen</h2>
+      <div class="fields">
+        <label>Deutsch <input id="o-de" type="text" autocapitalize="off"></label>
+        <label><span id="o-fr-l">Fremdsprache</span> <input id="o-fr" type="text" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+      </div>
+      <div class="opts" id="o-verb-l"><label><input type="checkbox" id="o-verb"> Das ist ein Verb, ich gebe die Formen ein</label></div>
+      <div id="o-forms" hidden style="display:flex;flex-direction:column;gap:.5rem"></div>
+      <p class="fb" id="o-fb" aria-live="polite">Wörter kommen in Kärtchen, Lernen, Zuordnen und Test dran, Verben zusätzlich bei den Verbformen.</p>
+      <div class="actions"><button class="btn" type="submit">Hinzufügen</button></div>
+    </form>
+    <details class="box" id="li-io" hidden><summary>Liste importieren oder exportieren</summary><div class="in">
+      <p class="small">Eine Zeile pro Wort, die zwei Seiten getrennt durch Tab, Strichpunkt oder « - ». Aus Quizlet: Set öffnen, im Menü «…» auf «Exportieren», den Text kopieren und hier einfügen.</p>
+      <textarea id="l-text" spellcheck="false" aria-label="Wörterliste"></textarea>
+      <div class="opts">
+        <label>Reihenfolge <select id="l-order"><option value="fr">Fremdsprache, dann Deutsch</option><option value="de">Deutsch, dann Fremdsprache</option></select></label>
+        <label>Oder Datei laden <input type="file" id="l-file" accept=".txt,.csv,.tsv,text/plain"></label>
+      </div>
+      <p class="fb" id="l-fb" aria-live="polite">Noch nichts importiert.</p>
+      <div class="actions"><button class="btn" type="button" id="l-import">Importieren</button><button class="btn ghost" type="button" id="l-export">Dieses Set als Liste</button><button class="btn ghost" type="button" id="l-copy">Kopieren</button></div>
+    </div></details>
+    <details class="box" id="li-rules" hidden><summary>Die Muster im Présent</summary>
+    <div class="rules">
+      <div class="rule"><h3>-er-Verben: -e, -es, -e</h3><p>je regard<em>e</em>, tu regard<em>es</em>, il regard<em>e</em>, dann -ons, -ez, -ent. Auch offrir, ouvrir, découvrir gehen so.</p></div>
+      <div class="rule"><h3>è vor stummer Endung</h3><p>j'ach<em>è</em>te, je préf<em>è</em>re, ils rép<em>è</em>tent. Bei nous und vous nicht: achetons, préférons.</p></div>
+      <div class="rule"><h3>ll und tt vor stummer Endung</h3><p>j'appe<em>ll</em>e, je je<em>tt</em>e, ils épe<em>ll</em>ent. Bei nous und vous einfach: appelons, jetons.</p></div>
+      <div class="rule"><h3>y wird zu i</h3><p>j'envo<em>i</em>e, tu essa<em>i</em>es, ils pa<em>i</em>ent. Bei nous und vous bleibt y: envo<em>y</em>ons, pa<em>y</em>ez.</p></div>
+      <div class="rule"><h3>-geons und -çons</h3><p>Nur die nous-Form: nous man<em>ge</em>ons, nous chan<em>ge</em>ons, nous commen<em>ç</em>ons, nous avan<em>ç</em>ons.</p></div>
+      <div class="rule"><h3>-dre: il ohne Endung</h3><p>je répond<em>s</em>, tu répond<em>s</em>, il répon<em>d</em>. Gleich: attendre, descendre, perdre, rendre.</p></div>
+      <div class="rule"><h3>-ir wie dormir</h3><p>Im Singular fällt ein Konsonant weg: je dor<em>s</em>, il dor<em>t</em>, nous dor<em>m</em>ons. je pars, je sors, je sers, je mens, je sens.</p></div>
+      <div class="rule"><h3>-ir wie finir</h3><p>Plural mit <em>-iss-</em>: nous fin<em>iss</em>ons, vous fin<em>iss</em>ez, ils fin<em>iss</em>ent. Gleich: choisir, réagir, réfléchir, réussir.</p></div>
+      <div class="rule"><h3>Sonst im Singular: -s, -s, -t</h3><p>je cour<em>s</em>, tu cour<em>s</em>, il cour<em>t</em>. Nous, vous, ils haben fast immer <em>-ons, -ez, -ent</em>.</p></div>
+      <div class="rule"><h3>Ausnahme -x, -x, -t</h3><p>Nur pouvoir und vouloir: je peu<em>x</em>, tu peu<em>x</em>, il peut. Je veu<em>x</em>, tu veu<em>x</em>, il veut.</p></div>
+      <div class="rule"><h3>Ausnahme: kein -t bei il</h3><p>il pren<em>d</em> (auch comprend, surprend) und il me<em>t</em> (nur ein t, auch promet).</p></div>
+      <div class="rule"><h3>Reflexive Verben</h3><p>je <em>me</em> lève, tu <em>te</em> lèves, il <em>se</em> lève, nous <em>nous</em> levons, vous <em>vous</em> levez, ils <em>se</em> lèvent. Vor Vokal: je <em>m'</em>inquiète.</p></div>
+      <div class="rule"><h3>vous …-tes statt -ez</h3><p>Nur drei: vous <em>êtes</em>, vous <em>faites</em>, vous <em>dites</em>. Nie «disez» oder «faisez».</p></div>
+      <div class="rule"><h3>ils …-ont</h3><p>Nur vier: ils <em>sont</em> (être), ils <em>ont</em> (avoir), ils <em>vont</em> (aller), ils <em>font</em> (faire). Alle anderen enden auf -ent.</p></div>
+      <div class="rule"><h3>Zwei Stämme</h3><p>Nous und vous nehmen den Stamm vom Infinitiv, der Rest wechselt: je <em>doi</em>s, nous <em>dev</em>ons, ils <em>doiv</em>ent. Gleich bei recevoir, pouvoir, vouloir, venir, prendre und boire (je bois, nous <em>buv</em>ons, ils boivent).</p></div>
+      <div class="rule"><h3>y bei nous und vous</h3><p>croire und voir: nous cro<em>y</em>ons, vous vo<em>y</em>ez, aber ils cro<em>i</em>ent, ils vo<em>i</em>ent.</p></div>
+      <div class="rule"><h3>Doppelter Konsonant</h3><p>ils pre<em>nn</em>ent, ils vie<em>nn</em>ent, ils tie<em>nn</em>ent. Bei mettre: Singular ein t, Plural zwei (me<em>tt</em>ons).</p></div>
+      <div class="rule"><h3>Im Plural kommt ein Buchstabe dazu</h3><p>écrire: écri<em>v</em>ons. lire, dire, plaire, faire, conduire: li<em>s</em>ons, di<em>s</em>ons, plai<em>s</em>ons, fai<em>s</em>ons, condui<em>s</em>ons. connaître: connai<em>ss</em>ons.</p></div>
+      <div class="rule"><h3>Akzente und ç</h3><p>re<em>ç</em>ois, re<em>ç</em>oit, re<em>ç</em>oivent (ç nur vor o). il pla<em>î</em>t, il conna<em>î</em>t. vous <em>ê</em>tes. <em>é</em>crire, d<em>é</em>couvrir.</p></div>
+      <div class="rule"><h3>Nur mit «il»</h3><p>falloir und pleuvoir gibt es nur in einer Form: <em>il faut</em>, <em>il pleut</em>.</p></div>
+    </div></details>
+    <input class="search" type="search" id="li-q" placeholder="In diesem Set suchen" aria-label="In diesem Set suchen">
+    <p class="small" id="li-info"></p>
+    <div class="list" id="li-list"></div>
+    <div class="actions" id="li-danger" hidden><button class="btn ghost" type="button" id="li-del">Dieses Set löschen</button></div>
+  </section>
+</main>
+
+<script>
+(function(){
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const norm = s => String(s).toLowerCase().replace(/[’`´‘]/g, "'").replace(/[!.?]+$/, "").replace(/\s+/g, " ").replace(/\s*-\s*/g, "-").trim();
+const deacc = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+const obj = o => (o && typeof o === "object" && !Array.isArray(o)) ? o : {};
+
+/* ================= FRANZÖSISCH ================= */
+const pre = (p, f) => f.map(x => p + x);
+const er = s => [s+"e",s+"es",s+"e",s+"ons",s+"ez",s+"ent"];
+const er2 = (a, b) => [a+"e",a+"es",a+"e",b+"ons",b+"ez",a+"ent"];
+const ger = s => { const f = er(s); f[3] = s + "eons"; return f; };
+const cer = s => { const f = er(s + "c"); f[3] = s + "çons"; return f; };
+const dre = s => [s+"s",s+"s",s,s+"ons",s+"ez",s+"ent"];
+const ir2 = (a, b) => [a+"s",a+"s",a+"t",b+"ons",b+"ez",b+"ent"];
+const iss = s => [s+"is",s+"is",s+"it",s+"issons",s+"issez",s+"issent"];
+const METTRE = ["mets","mets","met","mettons","mettez","mettent"];
+const PRENDRE = ["prends","prends","prend","prenons","prenez","prennent"];
+const RIRE = ["ris","ris","rit","rions","riez","rient"];
+const VENIR = ["viens","viens","vient","venons","venez","viennent"];
+const TENIR = VENIR.map(x => "t" + x.slice(1));
+const OUVRIR = ["ouvre","ouvres","ouvre","ouvrons","ouvrez","ouvrent"];
+const F = (t, d, f, o) => ({t, d, hint:o && o.hint, v:Object.assign(f ? {f} : {}, o)});
+const strong = f => f[0] + "r"; /* Futur-Stamm aus der je-Form: achète → achèter- */
+
+const FRV = [
+ F("regarder","betrachten",er("regard"),{sec:"er",tr:[],note:"Ganz regelmässig: -e, -es, -e, -ons, -ez, -ent. So gehen alle normalen -er-Verben."}),
+ F("acheter","kaufen",er2("achèt","achet"),{sec:"er",tr:[0,1,2,5],fut:"achèter",note:"è, wenn die Endung stumm ist (achète, achètent). Kein Akzent bei nous und vous."}),
+ F("enlever","wegnehmen",er2("enlèv","enlev"),{like:"acheter",fut:"enlèver"}),
+ F("se lever","aufstehen",er2("lèv","lev"),{like:"acheter",refl:true,fut:"lèver"}),
+ F("se promener","spazierengehen",er2("promèn","promen"),{like:"acheter",refl:true,fut:"promèner"}),
+ F("préférer","vorziehen",er2("préfèr","préfér"),{sec:"er",tr:[0,1,2,5],futAlt:["préfèrer"],note:"Das zweite é wird zu è vor stummer Endung: préfère, préfèrent. nous préférons behält é."}),
+ F("compléter","vervollständigen",er2("complèt","complét"),{like:"préférer",futAlt:["complèter"]}),
+ F("espérer","hoffen",er2("espèr","espér"),{like:"préférer",futAlt:["espèrer"]}),
+ F("s'inquiéter","sich beunruhigen",er2("inquièt","inquiét"),{like:"préférer",refl:true,futAlt:["inquièter"]}),
+ F("répéter","wiederholen",er2("répèt","répét"),{like:"préférer",futAlt:["répèter"]}),
+ F("appeler","rufen",er2("appell","appel"),{sec:"er",tr:[0,1,2,5],fut:"appeller",note:"ll vor stummer Endung (appelle, appellent), ein l bei nous und vous."}),
+ F("épeler","buchstabieren",er2("épell","épel"),{like:"appeler",fut:"épeller"}),
+ F("jeter","werfen",er2("jett","jet"),{like:"appeler",fut:"jetter",note:"Wie appeler, aber mit t: je jette, ils jettent, nous jetons."}),
+ F("envoyer","schicken",er2("envoi","envoy"),{sec:"er",tr:[0,1,2,5],fut:"enverr",note:"y wird zu i vor stummer Endung: envoie, envoient. nous envoyons, vous envoyez."}),
+ F("essayer","versuchen",er2("essai","essay"),{like:"envoyer",alt:er("essay"),fut:"essaier",futAlt:["essayer"]}),
+ F("payer","bezahlen",er2("pai","pay"),{like:"envoyer",alt:er("pay"),fut:"paier",futAlt:["payer"]}),
+ F("manger","essen",ger("mang"),{sec:"er",tr:[3],note:"nous mangeons: das e bleibt, damit das g weich klingt."}),
+ F("changer","wechseln",ger("chang"),{like:"manger"}),
+ F("corriger","korrigieren",ger("corrig"),{like:"manger"}),
+ F("déranger","stören",ger("dérang"),{like:"manger"}),
+ F("ranger","aufräumen",ger("rang"),{like:"manger"}),
+ F("commencer","beginnen, anfangen",cer("commen"),{sec:"er",tr:[3],note:"nous commençons: ç vor o, sonst normales c."}),
+ F("annoncer","ankündigen",cer("annon"),{like:"commencer"}),
+ F("avancer","vorrücken",cer("avan"),{like:"commencer"}),
+ F("prononcer","aussprechen",cer("pronon"),{like:"commencer"}),
+ F("répondre","antworten",dre("répond"),{sec:"dre",tr:[2],note:"il répond: nur der Stamm, kein t. Sonst -s, -s, -ons, -ez, -ent."}),
+ F("attendre","warten",dre("attend"),{like:"répondre"}),
+ F("descendre","aussteigen, hinabsteigen",dre("descend"),{like:"répondre",aux:"e"}),
+ F("perdre","verlieren",dre("perd"),{like:"répondre"}),
+ F("rendre","zurückgeben",dre("rend"),{like:"répondre"}),
+ F("dormir","schlafen",ir2("dor","dorm"),{sec:"ir",tr:[0,1,2],note:"Im Singular fällt der letzte Konsonant vom Stamm weg: je dors, il dort. Plural: dormons."}),
+ F("mentir","lügen",ir2("men","ment"),{like:"dormir"}),
+ F("partir","losgehen, wegfahren, abfahren",ir2("par","part"),{like:"dormir",aux:"e"}),
+ F("sentir","fühlen, riechen",ir2("sen","sent"),{like:"dormir"}),
+ F("servir","dienen, bedienen",ir2("ser","serv"),{like:"dormir"}),
+ F("sortir","hinausgehen, herauskommen",ir2("sor","sort"),{like:"dormir",aux:"e"}),
+ F("finir","beenden",iss("fin"),{sec:"ir",tr:[3,4,5],note:"Plural mit -iss-: finissons, finissez, finissent."}),
+ F("choisir","wählen, aussuchen",iss("chois"),{like:"finir"}),
+ F("réagir","reagieren",iss("réag"),{like:"finir"}),
+ F("réfléchir","nachdenken, überlegen",iss("réfléch"),{like:"finir"}),
+ F("réussir","gelingen",iss("réuss"),{like:"finir"}),
+ F("aller","gehen",["vais","vas","va","allons","allez","vont"],{tr:[0,1,2,5],aux:"e",fut:"ir",imper:["va","allons","allez"],note:"Komplett unregelmässig: vais, vas, va, vont. Nur allons und allez sehen aus wie der Infinitiv."}),
+ F("avoir","haben",["ai","as","a","avons","avez","ont"],{tr:[0,1,2,5],pp:"eu",fut:"aur",imper:["aie","ayons","ayez"],note:"j'ai, tu as, il a, ils ont. Nicht mit ils sont (être) verwechseln."}),
+ F("boire","trinken",["bois","bois","boit","buvons","buvez","boivent"],{tr:[3,4,5],pp:"bu",note:"boi- im Singular, buv- bei nous und vous, ils boivent."}),
+ F("conduire","fahren",ir2("condui","conduis"),{hint:"ein Fahrzeug lenken",tr:[3,4,5],pp:"conduit",note:"Im Plural kommt ein s dazu: conduisons, conduisez, conduisent."}),
+ F("construire","bauen",ir2("construi","construis"),{like:"conduire",pp:"construit"}),
+ F("connaître","kennen",["connais","connais","connaît","connaissons","connaissez","connaissent"],{tr:[2,3,4,5],pp:"connu",note:"il connaît mit î. Plural mit ss: connaissons."}),
+ F("courir","laufen, rennen",["cours","cours","court","courons","courez","courent"],{tr:[2],pp:"couru",fut:"courr",note:"Nur ein r. il court mit t."}),
+ F("croire","glauben",["crois","crois","croit","croyons","croyez","croient"],{tr:[3,4,5],pp:"cru",note:"y nur bei nous und vous, sonst i: ils croient."}),
+ F("devoir","müssen",["dois","dois","doit","devons","devez","doivent"],{hint:"persönlich: ich muss, du musst …",tr:[0,1,2,5],pp:"dû",fut:"devr",noImper:true,note:"doi- im Singular, dev- bei nous/vous, doiv- bei ils."}),
+ F("dire","sagen",["dis","dis","dit","disons","dites","disent"],{tr:[4],pp:"dit",note:"vous dites, nicht «disez»."}),
+ F("écrire","schreiben",["écris","écris","écrit","écrivons","écrivez","écrivent"],{tr:[3,4,5],pp:"écrit",note:"Im Plural kommt ein v dazu. Akzent auf dem é."}),
+ F("être","sein",["suis","es","est","sommes","êtes","sont"],{tr:[0,1,2,3,4,5],pp:"été",fut:"ser",impfStem:"ét",imper:["sois","soyons","soyez"],note:"Komplett unregelmässig. vous êtes mit ê, ils sont."}),
+ F("faire","machen",["fais","fais","fait","faisons","faites","font"],{tr:[3,4,5],pp:"fait",fut:"fer",note:"vous faites, ils font. nous faisons mit s."}),
+ F("falloir","müssen",null,{hint:"unpersönlich: man muss, es ist nötig",imp:{pres:"faut",impf:"fallait",pp:"fallu",fut:"faudra"},note:"Gibt es nur als il faut."}),
+ F("lire","lesen",["lis","lis","lit","lisons","lisez","lisent"],{tr:[3,4,5],pp:"lu",note:"Im Plural kommt ein s dazu: lisons."}),
+ F("mettre","setzen, stellen, legen",METTRE,{tr:[0,1,2],pp:"mis",note:"Singular nur ein t (je mets, il met), Plural zwei."}),
+ F("promettre","versprechen",pre("pro",METTRE),{like:"mettre",pp:"promis"}),
+ F("offrir","anbieten",["offre","offres","offre","offrons","offrez","offrent"],{tr:[0,1,2],pp:"offert",note:"Endungen wie ein -er-Verb: -e, -es, -e."}),
+ F("découvrir","entdecken",pre("déc",OUVRIR),{like:"offrir",pp:"découvert"}),
+ F("ouvrir","öffnen",OUVRIR,{like:"offrir",pp:"ouvert"}),
+ F("plaire","gefallen",["plais","plais","plaît","plaisons","plaisez","plaisent"],{tr:[2],pp:"plu",noImper:true,note:"il plaît mit î. Im Plural mit s."}),
+ F("pleuvoir","regnen",null,{imp:{pres:"pleut",impf:"pleuvait",pp:"plu",fut:"pleuvra"},note:"Gibt es nur als il pleut."}),
+ F("pouvoir","können",["peux","peux","peut","pouvons","pouvez","peuvent"],{hint:"die Möglichkeit haben, dürfen",tr:[0,1,5],pp:"pu",fut:"pourr",noImper:true,note:"je peux, tu peux mit x. ils peuvent."}),
+ F("prendre","nehmen",PRENDRE,{tr:[2,3,5],pp:"pris",note:"il prend ohne t. nous prenons ein n, ils prennent zwei n."}),
+ F("comprendre","verstehen",pre("com",PRENDRE),{like:"prendre",pp:"compris"}),
+ F("surprendre","überraschen",pre("sur",PRENDRE),{like:"prendre",pp:"surpris"}),
+ F("recevoir","empfangen",["reçois","reçois","reçoit","recevons","recevez","reçoivent"],{tr:[0,1,2,5],pp:"reçu",fut:"recevr",note:"ç vor o (reçois, reçoivent), normales c bei recevons, recevez."}),
+ F("rire","lachen",RIRE,{tr:[3,5],pp:"ri",note:"nous rions, ils rient: i bleibt, Endung kommt direkt dran."}),
+ F("sourire","lächeln",pre("sou",RIRE),{like:"rire",pp:"souri"}),
+ F("savoir","wissen, können",["sais","sais","sait","savons","savez","savent"],{hint:"etwas gelernt haben",tr:[0,1,2],pp:"su",fut:"saur",imper:["sache","sachons","sachez"],note:"je sais. Nicht mit je suis (être) verwechseln."}),
+ F("venir","kommen",VENIR,{tr:[0,1,2,5],pp:"venu",aux:"e",fut:"viendr",note:"vien- im Singular, ven- bei nous/vous, ils viennent mit nn."}),
+ F("tenir","halten",TENIR,{like:"venir",pp:"tenu",fut:"tiendr"}),
+ F("appartenir","gehören",pre("appar",TENIR),{like:"venir",pp:"appartenu",fut:"appartiendr"}),
+ F("devenir","werden",pre("de",VENIR),{like:"venir",pp:"devenu",aux:"e",fut:"deviendr"}),
+ F("vivre","leben",["vis","vis","vit","vivons","vivez","vivent"],{tr:[0,1,2],pp:"vécu",note:"Im Singular fällt das zweite v weg: je vis, il vit."}),
+ F("voir","sehen",["vois","vois","voit","voyons","voyez","voient"],{tr:[3,4,5],pp:"vu",fut:"verr",note:"Wie croire: y bei nous/vous, ils voient."}),
+ F("vouloir","wollen",["veux","veux","veut","voulons","voulez","veulent"],{tr:[0,1,5],pp:"voulu",fut:"voudr",imper:["veuille","veuillons","veuillez"],note:"je veux, tu veux mit x. ils veulent."})
+];
+(function(){ const m = {}; FRV.forEach(it => m[it.t] = it);
+  FRV.forEach(it => { const v = it.v; if (v.like){ v.sec = m[v.like].v.sec || "irr"; if (!v.tr) v.tr = m[v.like].v.tr; if (!v.note) v.note = "Geht wie " + v.like + ". " + m[v.like].v.note; } if (!v.sec) v.sec = "irr"; if (!v.tr) v.tr = []; }); })();
+
+const FRP = ["je","tu","il / elle","nous","vous","ils / elles"];
+const VOW = /^[aeiouéèêàâîôû]/;
+const AV = ["ai","as","a","avons","avez","ont"], ET = ["suis","es","est","sommes","êtes","sont"];
+function frLabel(i, form, refl){
+  const vow = VOW.test(form);
+  if (refl){ let r = ["me","te","se","nous","vous","se"][i]; if (vow && i !== 3 && i !== 4) r = r.charAt(0) + "'"; return FRP[i] + " " + r; }
+  return (i === 0 && vow) ? "j'" : FRP[i];
+}
+const frBase = it => it.t.replace(/^(se |s')/, "");
+function frPP(it){
+  const v = it.v; if (v.pp) return v.pp; if (v.user) return null;
+  const b = frBase(it);
+  if (/er$/.test(b)) return b.slice(0, -2) + "é";
+  if (/dre$/.test(b)) return b.slice(0, -2) + "u";
+  if (/ir$/.test(b)) return b.slice(0, -1);
+  return null;
+}
+function frFut(it){ const v = it.v, b = frBase(it); return [v.fut || (/e$/.test(b) ? b.slice(0, -1) : b)].concat(v.futAlt || []); }
+const R = (l, f, a, np) => ({l, f, a:(a || [f]).map(norm), np:!!np});
+function frConj(it, tense){
+  const v = it.v;
+  if (v.imp){
+    const m = v.imp;
+    if (tense === "pres") return [R("il", m.pres)];
+    if (tense === "impf") return [R("il", m.impf)];
+    if (tense === "pc") return [R("il", "a " + m.pp)];
+    if (tense === "fut") return [R("il", m.fut)];
+    return null;
+  }
+  if (!v.f) return null;
+  const refl = !!v.refl, etre = refl || v.aux === "e";
+  if (tense === "pres") return v.f.map((f, i) => R(frLabel(i, f, refl), f, v.alt ? [f, v.alt[i]] : [f]));
+  if (tense === "impf"){
+    const st = v.impfStem || v.f[3].slice(0, -3), E = ["ais","ais","ait","ions","iez","aient"];
+    const soft = /ge$/.test(st) ? st.slice(0, -1) : /ç$/.test(st) ? st.slice(0, -1) + "c" : st;
+    return E.map((e, i) => { const f = ((i === 3 || i === 4) ? soft : st) + e; return R(frLabel(i, f, refl), f); });
+  }
+  if (tense === "pc"){
+    const pp = frPP(it); if (!pp) return null;
+    return FRP.map((p, i) => {
+      if (!etre) return R(frLabel(i, AV[i], false), AV[i] + " " + pp);
+      const pl = i === 3 || i === 5, vous = i === 4;
+      const canon = ET[i] + " " + pp + "(e)" + (pl ? "s" : vous ? "(s)" : "");
+      const vars = pl ? [pp+"s", pp+"es", pp+"(e)s"] : vous ? [pp, pp+"e", pp+"s", pp+"es", pp+"(e)(s)", pp+"(e)s"] : [pp, pp+"e", pp+"(e)"];
+      return R(frLabel(i, ET[i], refl), canon, vars.map(x => ET[i] + " " + x));
+    });
+  }
+  if (tense === "fut"){
+    if (v.user) return null;
+    const st = frFut(it), E = ["ai","as","a","ons","ez","ont"];
+    return E.map((e, i) => { const f = st[0] + e; return R(frLabel(i, f, refl), f, st.map(s => s + e)); });
+  }
+  if (tense === "imper"){
+    if (v.user || v.noImper) return null;
+    const tu = f => /es$/.test(f) ? f.slice(0, -1) : f;
+    const base = v.imper || [tu(v.f[1]), v.f[3], v.f[4]];
+    const alt = (v.alt && !v.imper) ? [tu(v.alt[1]), v.alt[3], v.alt[4]] : null;
+    const suf = refl ? ["-toi","-nous","-vous"] : ["","",""];
+    return base.map((f, i) => R(["(tu)","(nous)","(vous)"][i], f + suf[i], alt ? [f + suf[i], alt[i] + suf[i]] : [f + suf[i]], true));
+  }
+  return null;
+}
+function frNote(it, tense){
+  const v = it.v;
+  if (tense === "pres") return v.note || "";
+  if (v.imp) return "Unpersönlich, nur mit il.";
+  if (tense === "impf") return "Imparfait: Stamm der nous-Form im Présent (" + (v.impfStem || v.f[3].slice(0, -3)) + "-) plus -ais, -ais, -ait, -ions, -iez, -aient.";
+  if (tense === "pc"){ const e = v.refl || v.aux === "e"; return "Passé composé: " + (e ? "être" : "avoir") + " + " + frPP(it) + (e ? ". Mit être wird das Partizip angeglichen (-e, -s)." : "."); }
+  if (tense === "fut") return "Futur simple: Stamm " + frFut(it)[0] + "- plus -ai, -as, -a, -ons, -ez, -ont.";
+  if (tense === "imper") return "Impératif: wie tu, nous, vous im Présent, ohne Pronomen. Bei Formen auf -es fällt bei tu das s weg.";
+  return "";
+}
+
+/* ================= ENGLISCH ================= */
+const E = (t, d, past, pp, o) => ({t, d, v:Object.assign({past, pp}, o)});
+const ENV = [
+ E("be","sein","was/were","been"), E("become","werden","became","become"), E("begin","beginnen","began","begun",{ing:"beginning"}),
+ E("break","brechen, kaputt machen","broke","broken"), E("bring","bringen","brought","brought"), E("build","bauen","built","built"),
+ E("buy","kaufen","bought","bought"), E("catch","fangen","caught","caught"), E("choose","wählen","chose","chosen"),
+ E("come","kommen","came","come"), E("cost","kosten","cost","cost"), E("cut","schneiden","cut","cut"),
+ E("do","tun, machen","did","done"), E("draw","zeichnen","drew","drawn"), E("drink","trinken","drank","drunk"),
+ E("drive","fahren","drove","driven"), E("eat","essen","ate","eaten"), E("fall","fallen","fell","fallen"),
+ E("feel","fühlen","felt","felt"), E("find","finden","found","found"), E("fly","fliegen","flew","flown"),
+ E("forget","vergessen","forgot","forgotten",{ing:"forgetting"}), E("get","bekommen","got","got"), E("give","geben","gave","given"),
+ E("go","gehen","went","gone"), E("have","haben","had","had",{s3:"has"}), E("hear","hören","heard","heard"),
+ E("hold","halten","held","held"), E("keep","behalten","kept","kept"), E("know","wissen, kennen","knew","known"),
+ E("leave","verlassen, weggehen","left","left"), E("lose","verlieren","lost","lost"), E("make","machen, herstellen","made","made"),
+ E("meet","treffen","met","met"), E("pay","bezahlen","paid","paid"), E("put","setzen, stellen, legen","put","put"),
+ E("read","lesen","read","read"), E("ride","reiten, fahren","rode","ridden"), E("run","rennen","ran","run"),
+ E("say","sagen","said","said"), E("see","sehen","saw","seen"), E("sell","verkaufen","sold","sold"),
+ E("send","schicken","sent","sent"), E("sing","singen","sang","sung"), E("sit","sitzen","sat","sat"),
+ E("sleep","schlafen","slept","slept"), E("speak","sprechen","spoke","spoken"), E("spend","ausgeben, verbringen","spent","spent"),
+ E("stand","stehen","stood","stood"), E("swim","schwimmen","swam","swum"), E("take","nehmen","took","taken"),
+ E("teach","unterrichten","taught","taught"), E("tell","erzählen, sagen","told","told"), E("think","denken","thought","thought"),
+ E("throw","werfen","threw","thrown"), E("understand","verstehen","understood","understood"), E("wear","tragen (Kleidung)","wore","worn"),
+ E("win","gewinnen","won","won"), E("write","schreiben","wrote","written")
+];
+const ENP = ["I","you","he / she / it","we","you","they"], BE = ["am","are","is","are","are","are"];
+const en3 = b => /(s|sh|ch|x|z|o)$/.test(b) ? b + "es" : /[^aeiou]y$/.test(b) ? b.slice(0, -1) + "ies" : b + "s";
+const enIng = b => /ie$/.test(b) ? b.slice(0, -2) + "ying" : (/e$/.test(b) && !/(ee|ye|oe)$/.test(b) && b !== "be") ? b.slice(0, -1) + "ing"
+  : /^[^aeiou]*[aeiou][^aeiouwxy]$/.test(b) ? b + b.slice(-1) + "ing" : b + "ing";
+function enConj(it, tense){
+  const v = it.v; if (!v.past || !v.pp) return null;
+  const base = it.t.replace(/^to /, ""), be = base === "be";
+  const list = s => String(s).split("/").map(x => x.trim()).filter(Boolean);
+  const past = list(v.past), pp = list(v.pp), s3 = v.s3 || en3(base), ing = v.ing || enIng(base);
+  const both = a => a.length > 1 ? a.concat([a.join(" / "), a.join("/"), a.join(", ")]) : a;
+  if (tense === "forms") return [R("Simple past", past.join(" / "), both(past), true), R("Past participle", pp.join(" / "), both(pp), true)];
+  if (tense === "pres") return ENP.map((p, i) => R(p, be ? BE[i] : (i === 2 ? s3 : base)));
+  if (tense === "past") return ENP.map((p, i) => be ? R(p, (i === 0 || i === 2) ? "was" : "were") : R(p, past[0], past));
+  if (tense === "perf") return ENP.map((p, i) => { const h = i === 2 ? "has" : "have"; return R(p, h + " " + pp[0], pp.map(x => h + " " + x)); });
+  if (tense === "prog") return ENP.map((p, i) => R(p, BE[i] + " " + ing));
+  if (tense === "will") return ENP.map(p => R(p, "will " + base));
+  return null;
+}
+function enNote(it){ const v = it.v; return "Stammformen: " + it.t + " – " + v.past.replace("/", " / ") + " – " + v.pp.replace("/", " / ") + "."; }
+
+const LANG = {
+  fr:{name:"Französisch", label:"français", accents:["é","è","ê","à","ç","î","ô","û"], conj:frConj, note:frNote, dedupe:false,
+      tenses:[{id:"pres",n:"Présent"},{id:"impf",n:"Imparfait"},{id:"pc",n:"Passé composé"},{id:"fut",n:"Futur simple"},{id:"imper",n:"Impératif"}]},
+  en:{name:"Englisch", label:"English", accents:[], conj:enConj, note:enNote, dedupe:true,
+      tenses:[{id:"forms",n:"Stammformen"},{id:"pres",n:"Present simple"},{id:"past",n:"Past simple"},{id:"perf",n:"Present perfect"},{id:"prog",n:"Present progressive"},{id:"will",n:"will-future"}]},
+  xx:{name:"Andere Sprache", label:"Fremdsprache", accents:[], conj:null, note:null, tenses:[]}
+};
+const BUILTIN = [
+  {id:"fr-rev", name:"Französische Verben «Révisions»", lang:"fr", builtin:true, items:FRV},
+  {id:"en-irr", name:"English irregular verbs", lang:"en", builtin:true, items:ENV}
+];
+const SEC = {er:"Verben auf -er", dre:"Verben auf -dre", ir:"Verben auf -ir", irr:"Unregelmässige Verben"};
+const GROUPS = {er:["er"], dreir:["dre","ir"], irr:["irr"]};
+
+/* ================= SPEICHER ================= */
+const KEY = "verbes-present-v1";
+const DEF_OPT = {ebenso:true, group:"all", hide:false, mcFirst:true, dir:"de", sub:"einzeln", tense:{}};
+let S = {v:2, box:{}, mc:{}, best:{}, sets:[], opt:Object.assign({}, DEF_OPT), cur:{set:null, mode:"karten"}};
+function cleanItem(x){
+  if (!x || typeof x.t !== "string" || typeof x.d !== "string" || !x.t.trim() || !x.d.trim()) return null;
+  const it = {t:norm(x.t), d:x.d.trim()};
+  const v = obj(x.v);
+  if (Array.isArray(v.f) && v.f.length === 6){ it.v = {user:true, f:v.f.map(norm)}; if (typeof v.pp === "string" && v.pp) it.v.pp = norm(v.pp); if (v.aux === "e") it.v.aux = "e"; if (/^(se |s')/.test(it.t)) it.v.refl = true; }
+  else if (typeof v.past === "string" && typeof v.pp === "string" && v.past && v.pp) it.v = {user:true, past:norm(v.past), pp:norm(v.pp)};
+  return it;
+}
+function cleanSet(s){
+  if (!s || typeof s.name !== "string" || !LANG[s.lang] || !Array.isArray(s.items)) return null;
+  const id = String(s.id || "").replace(/[^a-z0-9]/gi, "") || ("s" + Date.now().toString(36) + Math.floor(Math.random() * 1e4));
+  if (BUILTIN.some(b => b.id.replace(/-/g, "") === id)) return null;
+  const seen = {}, items = [];
+  s.items.forEach(x => { const it = cleanItem(x); if (it && !seen[it.t]){ seen[it.t] = 1; items.push(it); } });
+  return {id, name:s.name.trim().slice(0, 80) || "Set", lang:s.lang, items};
+}
+function adopt(o){
+  o = obj(o);
+  S.box = obj(o.box); S.mc = obj(o.mc); S.best = obj(o.best);
+  S.opt = Object.assign({}, DEF_OPT, obj(o.opt)); S.opt.tense = obj(S.opt.tense);
+  ["ebenso","hide","mcFirst","group"].forEach(k => { if (o[k] !== undefined) S.opt[k] = o[k]; });
+  S.sets = (Array.isArray(o.sets) ? o.sets : []).map(cleanSet).filter(Boolean);
+  if (Array.isArray(o.own) && o.own.length && !S.sets.some(s => s.id === "own")){   /* alte Version: eigene Wörter */
+    const set = cleanSet({id:"own", name:"Meine Wörter", lang:"fr", items:o.own.map(x => ({t:x && x.fr, d:x && x.de, v:x && x.f ? {f:x.f} : null}))});
+    if (set && set.items.length){
+      S.sets.push(set);
+      set.items.forEach(it => ["box","mc"].forEach(m => {
+        const mv = (a, b) => { if (S[m][a] !== undefined){ S[m][b] = S[m][a]; delete S[m][a]; } };
+        mv("inf:" + it.t, "own|inf:" + it.t); for (let i = 0; i < 6; i++) mv(it.t + ":" + i, "own|" + it.t + ":" + i);
+      }));
+    }
+  }
+  const c = obj(o.cur); S.cur = {set:typeof c.set === "string" ? c.set : null, mode:typeof c.mode === "string" ? c.mode : "karten"};
+}
+try { const raw = localStorage.getItem(KEY); if (raw) adopt(JSON.parse(raw)); } catch(e){}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} };
+
+/* ================= SET-LOGIK ================= */
+const allSets = () => BUILTIN.concat(S.sets);
+const getSet = id => allSets().find(s => s.id === id) || null;
+let SET = null;
+const hasVerbs = set => !!LANG[set.lang].conj && set.items.some(it => it.v);
+const TC = {}; /* pro Set: nur Zeiten, für die es wirklich Formen gibt */
+const tensesOf = set => TC[set.id] || (TC[set.id] = hasVerbs(set) ? LANG[set.lang].tenses.filter(T => set.items.some(it => rowsOf(set, it, T.id))) : []);
+function curTense(set){ const ts = tensesOf(set); const id = S.opt.tense[set.id]; return (ts.find(t => t.id === id) || ts[0] || {id:null, n:""}); }
+const rowsOf = (set, it, tense) => (it.v && LANG[set.lang].conj) ? LANG[set.lang].conj(it, tense) : null;
+const noteOf = (set, it, tense) => (it.v && LANG[set.lang].note) ? LANG[set.lang].note(it, tense) : "";
+const kp = set => set.id === "fr-rev" ? "" : set.id + "|";
+const kWord = (set, it) => kp(set) + "inf:" + it.t;
+const kForm = (set, it, tense, i) => kp(set) + it.t + ":" + (tense === "pres" ? "" : tense + ":") + i;
+function activeItems(set){
+  if (set.id !== "fr-rev") return set.items;
+  return set.items.filter(it => (S.opt.ebenso || !it.v.like) && (!GROUPS[S.opt.group] || GROUPS[S.opt.group].indexOf(it.v.sec) > -1));
+}
+function shortLabel(l){ return l.replace(/( \/ [^ ]+)+/, ""); }
+function fullRow(r){ if (r.np) return r.f; const s = shortLabel(r.l); return s + (/'$/.test(s) ? "" : " ") + r.f; }
+function accepted(r){
+  const out = r.a.slice(); if (r.np) return out;
+  const parts = r.l.split(" / "), last = parts[parts.length - 1], sp = last.indexOf(" ");
+  const suf = sp > 0 ? last.slice(sp + 1) : ""; if (sp > 0) parts[parts.length - 1] = last.slice(0, sp);
+  if (parts.indexOf("il") > -1) parts.push("on");
+  parts.forEach(p => { const pr = norm(p + (suf ? " " + suf : "")); r.a.forEach(a => out.push(pr + (/'$/.test(pr) ? "" : " ") + a)); });
+  return out;
+}
+function grade(input, answers){
+  const n = norm(input);
+  if (answers.indexOf(n) > -1) return "ok";
+  for (let i = 0; i < answers.length; i++) if (deacc(n) === deacc(answers[i])) return "accent";
+  return "bad";
+}
+function mark(key, ok){ const b = S.box[key] || 0; S.box[key] = ok ? Math.min(3, b + 1) : 0; save(); }
+function wordAnswers(set, it){ const a = [norm(it.t)]; if (set.lang === "en"){ a.push("to " + a[0]); if (/^to /.test(a[0])) a.push(a[0].slice(3)); } return a; }
+
+/* Akzent-Tasten */
+let lastTableInput = null;
+function setAccents(){
+  const acc = SET ? LANG[SET.lang].accents : [];
+  document.querySelectorAll(".accents").forEach(bar => {
+    bar.dataset.n = acc.length;
+    bar.innerHTML = acc.length ? "<span>Einfügen:</span>" + acc.map(a => '<button type="button">' + a + "</button>").join("") : "";
+    bar.hidden = !acc.length;
+  });
+}
+document.querySelectorAll(".accents").forEach(bar => bar.addEventListener("click", e => {
+  if (e.target.tagName !== "BUTTON") return;
+  const tgt = bar.dataset.for === "table" ? (lastTableInput || document.querySelector("#t-rows input")) : $(bar.dataset.for);
+  if (!tgt) return;
+  const a = tgt.selectionStart == null ? tgt.value.length : tgt.selectionStart, b = tgt.selectionEnd == null ? a : tgt.selectionEnd;
+  tgt.value = tgt.value.slice(0, a) + e.target.textContent + tgt.value.slice(b);
+  tgt.focus(); try { tgt.setSelectionRange(a + 1, a + 1); } catch(err){}
+}));
+
+/* ================= ABFRAGE-MOTOR (Lernen und einzelne Verbformen) ================= */
+function Quiz(px, cfg){
+  let cur = null, answered = false, due = [], n = 0, lastKey = null, mode = "type", prevBox = 0;
+  const form = $(px + "-form"), inp = $(px + "-in"), fb = $(px + "-fb"), btn = $(px + "-btn"), skip = $(px + "-skip"),
+        row = $(px + "-row"), ch = $(px + "-ch"), ovr = $(px + "-ovr"), again = $(px + "-again"), accBar = form.querySelector(".accents");
+  function progress(){
+    if (!SET) return;
+    const pool = cfg.pool(), sure = pool.filter(q => (S.box[q.key] || 0) >= 2).length;
+    $(px + "-bar").style.width = (pool.length ? 100 * sure / pool.length : 0) + "%";
+    $(px + "-prog").textContent = sure + " von " + pool.length + " " + cfg.unit + " sitzen und kommen nicht mehr dran (zweimal hintereinander richtig geschrieben). Noch offen: " + (pool.length - sure) + ".";
+  }
+  function pick(pool){
+    const keys = {}; pool.forEach(q => keys[q.key] = q);
+    for (let i = 0; i < due.length; i++) if (due[i].at <= n && keys[due[i].key]){ const q = keys[due[i].key]; due.splice(i, 1); return q; }
+    let total = 0; const ws = pool.map(q => { const w = q.key === lastKey ? 0 : ((S.box[q.key] || 0) ? 4 : 8) * (q.w || 1); total += w; return w; });
+    let r = Math.random() * total;
+    for (let j = 0; j < pool.length; j++){ r -= ws[j]; if (r <= 0 && ws[j] > 0) return pool[j]; }
+    return pool[pool.length - 1];
+  }
+  function next(){
+    if (!SET) return;
+    const all = cfg.pool(), pool = all.filter(q => (S.box[q.key] || 0) < 2);
+    ovr.hidden = true; again.hidden = true;
+    if (!pool.length){
+      cur = null; form.classList.add("empty"); progress();
+      if (all.length){ fb.className = "fb ok"; fb.textContent = "Geschafft: alle " + all.length + " " + cfg.unit + " in dieser Auswahl sitzen."; again.hidden = false; }
+      else { fb.className = "fb"; fb.textContent = cfg.none || "In dieser Auswahl gibt es noch nichts zu üben."; }
+      return;
+    }
+    form.classList.remove("empty");
+    cur = pick(pool); const k = cur.key; lastKey = k; answered = false; n++;
+    const opts = (S.opt.mcFirst && !S.mc[k] && !(S.box[k] > 0)) ? cur.choices() : null;
+    mode = opts && opts.length >= 4 ? "mc" : "type";
+    $(px + "-de").textContent = cur.prompt; $(px + "-inf").textContent = cur.sub || ""; $(px + "-hint").textContent = cur.hint || ""; $(px + "-pron").textContent = cur.label;
+    inp.value = ""; row.className = "row";
+    inp.hidden = mode === "mc"; ch.hidden = mode !== "mc"; btn.hidden = mode === "mc";
+    accBar.hidden = mode === "mc" || accBar.dataset.n === "0";
+    ch.innerHTML = mode === "mc" ? opts.map(o => '<button type="button" class="choice">' + esc(o) + "</button>").join("") : "";
+    fb.className = "fb"; fb.textContent = mode === "mc" ? "Neu für dich: tippe die richtige Antwort an." : cfg.idle;
+    btn.textContent = "Prüfen"; skip.hidden = false;
+    progress();
+    if (!form.closest("[hidden]")){
+      if (mode === "type") inp.focus({preventScroll:true});
+      const bar = document.querySelector(".top").getBoundingClientRect(), sticky = getComputedStyle(document.querySelector(".top")).position === "sticky";
+      const limit = (sticky ? Math.max(0, bar.bottom) : 0) + 8, top = $(px + "-de").getBoundingClientRect().top;
+      if (top < limit) window.scrollBy(0, top - limit); /* neue Frage darf nicht oben aus dem Bild gerutscht sein */
+    }
+  }
+  let lock = 0; /* Doppeltipper soll die Rückmeldung nicht überspringen */
+  const finish = () => { answered = true; lock = Date.now() + 350; btn.hidden = false; btn.textContent = "Weiter"; skip.hidden = true; progress();
+    setTimeout(() => { /* Rückmeldung in Sicht holen, falls sie unter der Tastatur liegt */
+      const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight, r = fb.getBoundingClientRect();
+      if (r.bottom > vh - 6) window.scrollBy(0, Math.min(r.bottom - vh + 10, Math.max(0, btn.getBoundingClientRect().top - 60)));
+    }, 40); };
+  const wrongHtml = p => p + "Richtig ist <b>" + esc(cur.pretty) + "</b>" + (cur.explain ? '<span class="note">' + esc(cur.explain) + "</span>" : "");
+  function pickMC(val){
+    const k = cur.key, ans = cur.mc;
+    ch.querySelectorAll("button").forEach(b => { b.disabled = true; if (b.textContent === ans) b.classList.add("ok"); else if (b.textContent === val) b.classList.add("bad"); });
+    if (val === ans){ S.mc[k] = 1; save(); due.push({key:k, at:n + 2}); fb.className = "fb ok"; fb.innerHTML = "Richtig: <b>" + esc(cur.pretty) + "</b>. Gleich schreibst du es selbst."; }
+    else { due.push({key:k, at:n + 3}); fb.className = "fb bad"; fb.innerHTML = wrongHtml(""); }
+    finish(); btn.focus();
+  }
+  function check(giveUp){
+    const k = cur.key, res = giveUp ? "bad" : grade(inp.value, cur.answers);
+    prevBox = S.box[k] || 0;
+    if (res === "ok"){ S.mc[k] = 1; mark(k, true); row.className = "row ok"; fb.className = "fb ok"; fb.innerHTML = "Richtig: <b>" + esc(cur.pretty) + "</b>"; }
+    else { mark(k, false); due.push({key:k, at:n + 3}); row.className = "row bad"; fb.className = "fb bad";
+      fb.innerHTML = wrongHtml(res === "accent" ? "Fast, nur der Akzent stimmt nicht. " : ""); ovr.hidden = giveUp || !inp.value.trim(); }
+    finish(); inp.focus();
+  }
+  ch.addEventListener("click", e => { if (e.target.classList.contains("choice") && cur && !answered) pickMC(e.target.textContent); });
+  ovr.addEventListener("click", () => {
+    if (!cur) return;
+    const k = cur.key; S.box[k] = Math.min(3, prevBox + 1); S.mc[k] = 1; save();
+    due = due.filter(d => d.key !== k); ovr.hidden = true; row.className = "row"; fb.className = "fb ok";
+    fb.innerHTML = "Als Tippfehler gewertet, zählt als richtig: <b>" + esc(cur.pretty) + "</b>"; progress(); inp.focus();
+  });
+  again.addEventListener("click", () => { cfg.pool().forEach(q => delete S.box[q.key]); save(); next(); });
+  form.addEventListener("submit", e => {
+    e.preventDefault(); if (!cur) return;
+    if (answered){ if (Date.now() < lock) return; return next(); }
+    if (mode === "mc") return;
+    if (!inp.value.trim()){ inp.focus(); return; }
+    check(false);
+  });
+  skip.addEventListener("click", () => { if (!cur || answered) return; if (mode === "mc") pickMC(null); else check(true); });
+  return {next, progress, reset(){ due = []; lastKey = null; n = 0; next(); }};
+}
+
+const qLearn = Quiz("u", {
+  unit:"Wörter", idle:"Tippe das Wort und drücke Enter.", none:"Dieses Set ist noch leer. Füge unter «Liste» Wörter hinzu.",
+  pool(){
+    const set = SET, items = activeItems(set);
+    return items.map(it => ({
+      key:kWord(set, it), prompt:it.d, hint:it.hint ? "(" + it.hint + ")" : "", label:LANG[set.lang].label,
+      answers:wordAnswers(set, it), pretty:it.t, mc:it.t, explain:it.d + " = " + it.t + (it.v && it.v.like ? " (geht wie " + it.v.like + ")" : ""),
+      choices(){
+        const cand = items.filter(x => x !== it && x.d !== it.d);
+        const same = shuffle(cand.filter(x => x.v && it.v && x.v.sec === it.v.sec)), rest = shuffle(cand.filter(x => same.indexOf(x) < 0));
+        return shuffle(same.concat(rest).slice(0, 3).map(x => x.t).concat(it.t));
+      }
+    }));
+  }
+});
+function formQuestions(set, tense){
+  const L = LANG[set.lang], T = tense, out = [], verbs = activeItems(set).filter(it => it.v);
+  verbs.forEach(it => {
+    const rows = rowsOf(set, it, T.id); if (!rows) return;
+    const seen = {};
+    rows.forEach((r, i) => {
+      if (L.dedupe && !r.np){ if (seen[r.f]) return; seen[r.f] = 1; }
+      out.push({
+        key:kForm(set, it, T.id, i), prompt:it.d, sub:S.opt.hide ? "" : it.t, hint:T.n + (S.opt.hide && it.hint ? " · " + it.hint : ""), label:r.l,
+        answers:accepted(r), pretty:fullRow(r), mc:r.f, explain:noteOf(set, it, T.id), w:(T.id === "pres" && it.v.tr && it.v.tr.indexOf(i) > -1) ? 2 : 1,
+        choices(){
+          let c = []; rows.forEach(x => { if (x.f !== r.f && c.indexOf(x.f) < 0) c.push(x.f); });
+          c = shuffle(c).slice(0, 3);
+          const others = shuffle(verbs.filter(x => x !== it));
+          for (let j = 0; c.length < 3 && j < others.length; j++){ const rr = rowsOf(set, others[j], T.id); const f = rr && rr[Math.min(i, rr.length - 1)].f; if (f && f !== r.f && c.indexOf(f) < 0) c.push(f); }
+          return shuffle(c.concat(r.f));
+        }
+      });
+    });
+  });
+  return out;
+}
+const qForm = Quiz("f", {
+  unit:"Formen", idle:"Tippe nur die Verbform und drücke Enter.", none:"In dieser Auswahl gibt es keine Verben mit dieser Zeit.",
+  pool(){ return formQuestions(SET, curTense(SET)); }
+});
+
+/* ================= GANZE TABELLE ================= */
+let tVerbs = [], tCur = null, tRows = [], tDone = false, tPrev = [];
+const sel = $("t-select");
+function fillSelect(){
+  const T = curTense(SET);
+  tVerbs = activeItems(SET).filter(it => { const r = rowsOf(SET, it, T.id); return r && r.length > 1; });
+  sel.innerHTML = tVerbs.map(it => '<option value="' + esc(it.t) + '">' + esc(it.t) + " – " + esc(it.d) + "</option>").join("");
+  if (!tVerbs.length){ tCur = null; $("t-form").classList.add("empty"); $("t-rows").innerHTML = ""; $("t-fb").className = "fb"; $("t-fb").textContent = "In dieser Auswahl gibt es keine Verben mit dieser Zeit."; return; }
+  $("t-form").classList.remove("empty");
+  tShow(tVerbs.indexOf(tCur) > -1 ? tCur : tVerbs[0]);
+}
+function tShow(it){
+  const T = curTense(SET); tCur = it; tRows = rowsOf(SET, it, T.id); tDone = false; sel.value = it.t; lastTableInput = null;
+  $("t-de").textContent = it.d; $("t-inf").textContent = it.t; $("t-hint").textContent = T.n;
+  $("t-rows").innerHTML = tRows.map((r, i) => '<div class="row"><label class="pron" for="t-in' + i + '">' + esc(r.l) + '</label><div class="cell"><input id="t-in' + i + '" type="text" autocapitalize="off" autocorrect="off" spellcheck="false"><span class="fix" hidden></span><button type="button" class="mini" data-i="' + i + '" hidden>War nur ein Tippfehler</button></div></div>').join("");
+  $("t-fb").className = "fb"; $("t-fb").textContent = "Fülle alle Formen aus, dann prüfen."; $("t-btn").textContent = "Prüfen";
+}
+function tRandom(){
+  const T = curTense(SET), c = tVerbs.filter(v => v !== tCur); if (!c.length) return tCur;
+  const ws = c.map(it => { let w = 0; rowsOf(SET, it, T.id).forEach((r, i) => w += [8,4,1,1][S.box[kForm(SET, it, T.id, i)] || 0]); return w; });
+  let r = Math.random() * ws.reduce((a, b) => a + b, 0);
+  for (let j = 0; j < c.length; j++){ r -= ws[j]; if (r <= 0) return c[j]; }
+  return c[0];
+}
+$("t-rows").addEventListener("focusin", e => { if (e.target.tagName === "INPUT") lastTableInput = e.target; });
+$("t-rows").addEventListener("click", e => {
+  if (!e.target.classList.contains("mini") || !tDone) return;
+  const i = +e.target.dataset.i, k = kForm(SET, tCur, curTense(SET).id, i), rowEl = $("t-rows").children[i];
+  S.box[k] = Math.min(3, (tPrev[i] || 0) + 1); save();
+  rowEl.className = "row"; rowEl.querySelector(".fix").textContent = tRows[i].f + " (Tippfehler, zählt als richtig)"; e.target.hidden = true; qForm.progress();
+});
+sel.addEventListener("change", () => { const it = tVerbs.find(v => v.t === sel.value); if (it) tShow(it); });
+$("t-random").addEventListener("click", () => { if (!tCur) return; tShow(tRandom()); $("t-in0").focus(); });
+$("t-form").addEventListener("submit", e => {
+  e.preventDefault(); if (!tCur) return;
+  if (tDone){ tShow(tRandom()); $("t-in0").focus(); return; }
+  const T = curTense(SET), rows = $("t-rows").children; let good = 0;
+  tRows.forEach((r, i) => {
+    const inp = $("t-in" + i), k = kForm(SET, tCur, T.id, i), res = grade(inp.value, accepted(r)), fix = rows[i].querySelector(".fix");
+    tPrev[i] = S.box[k] || 0;
+    if (res === "ok"){ good++; rows[i].className = "row ok"; S.mc[k] = 1; mark(k, true); }
+    else { rows[i].className = "row bad"; fix.textContent = r.f + (res === "accent" ? " (Akzent!)" : ""); fix.hidden = false; mark(k, false); if (inp.value.trim()) rows[i].querySelector(".mini").hidden = false; }
+  });
+  tDone = true; $("t-btn").textContent = "Nächstes Verb";
+  const fb = $("t-fb"), note = noteOf(SET, tCur, T.id); fb.className = "fb " + (good === tRows.length ? "ok" : "bad");
+  fb.innerHTML = good === tRows.length ? "Alles richtig." : good + " von " + tRows.length + " richtig." + (note ? '<span class="note">' + esc(note) + "</span>" : "");
+  qForm.progress();
+});
+
+/* ================= KÄRTCHEN ================= */
+const K = {deck:[], pos:0, known:0, open:[]};
+const card = $("k-card");
+function kStart(items){ K.deck = shuffle(items); K.pos = 0; K.known = 0; K.open = []; kShow(); }
+function kShow(){
+  const done = K.pos >= K.deck.length;
+  $("k-done").hidden = !done; card.hidden = done; $("k-actions").hidden = done;
+  $("k-count").textContent = K.deck.length ? Math.min(K.pos + 1, K.deck.length) + " / " + K.deck.length : "";
+  if (done){
+    $("k-sum").className = "fb " + (K.deck.length ? "ok" : "");
+    $("k-sum").textContent = K.deck.length ? "Stapel durch: " + K.known + " von " + K.deck.length + " gekonnt." : "Dieses Set ist noch leer. Füge unter «Liste» Wörter hinzu.";
+    $("k-open").hidden = !K.open.length; $("k-all").hidden = !K.deck.length; return;
+  }
+  const it = K.deck[K.pos], L = LANG[SET.lang], de = S.opt.dir === "de";
+  card.classList.add("snap"); card.classList.remove("flip");
+  $("k-fl").textContent = de ? "Deutsch" : L.name; $("k-bl").textContent = de ? L.name : "Deutsch";
+  $("k-front").textContent = de ? it.d : it.t; $("k-back").textContent = de ? it.t : it.d;
+  let extra = it.hint ? "(" + it.hint + ")" : "";
+  if (de && it.v){ const T = curTense(SET), rows = rowsOf(SET, it, T.id); if (rows) extra = T.n + ": " + rows.map(fullRow).join(", "); }
+  $("k-extra").textContent = extra;
+  void card.offsetWidth; card.classList.remove("snap");
+}
+card.addEventListener("click", () => card.classList.toggle("flip"));
+$("k-yes").addEventListener("click", () => { K.known++; K.pos++; kShow(); });
+$("k-no").addEventListener("click", () => { K.open.push(K.deck[K.pos]); K.pos++; kShow(); });
+$("k-open").addEventListener("click", () => kStart(K.open));
+$("k-all").addEventListener("click", () => kStart(activeItems(SET)));
+$("k-shuffle").addEventListener("click", () => kStart(activeItems(SET)));
+$("k-dir").addEventListener("change", function(){ S.opt.dir = this.value; save(); kShow(); });
+
+/* ================= ZUORDNEN ================= */
+const M = {sel:null, left:0, t0:0, timer:null, lock:false};
+function mStop(){ if (M.timer){ clearInterval(M.timer); M.timer = null; } }
+function mBest(){ const b = S.best[SET.id]; $("m-best").textContent = b ? "Bestzeit: " + (b / 1000).toFixed(1) + " s" : ""; }
+function mStart(){
+  mStop(); M.sel = null; M.t0 = 0; M.lock = false; $("m-time").textContent = "0.0 s"; mBest();
+  const seenD = {}, fb = $("m-fb"); /* keine zwei Wörter mit gleicher deutscher Bedeutung in einer Runde */
+  const items = shuffle(activeItems(SET)).filter(it => { const k = norm(it.d); if (seenD[k]) return false; seenD[k] = 1; return true; }).slice(0, 6);
+  M.left = items.length;
+  if (items.length < 2){ $("m-grid").innerHTML = ""; fb.className = "fb"; fb.textContent = "Zum Zuordnen braucht das Set mindestens zwei Wörter."; return; }
+  const tiles = shuffle(items.map((it, i) => ({p:i, x:it.d})).concat(items.map((it, i) => ({p:i, x:it.t}))));
+  $("m-grid").innerHTML = tiles.map(t => '<button type="button" class="tile" data-p="' + t.p + '">' + esc(t.x) + "</button>").join("");
+  fb.className = "fb"; fb.textContent = "Tippe zwei Felder an, die zusammengehören. Die Zeit läuft ab dem ersten Tippen.";
+}
+$("m-grid").addEventListener("click", e => {
+  const b = e.target; if (!b.classList.contains("tile") || b.classList.contains("gone") || M.lock) return;
+  if (!M.t0){ M.t0 = Date.now(); M.timer = setInterval(() => { $("m-time").textContent = ((Date.now() - M.t0) / 1000).toFixed(1) + " s"; }, 100); }
+  if (M.sel === b){ b.classList.remove("sel"); M.sel = null; return; }
+  if (!M.sel){ M.sel = b; b.classList.add("sel"); return; }
+  const a = M.sel; M.sel = null;
+  if (a.dataset.p === b.dataset.p){
+    a.classList.remove("sel"); a.classList.add("gone"); b.classList.add("gone"); M.left--;
+    if (!M.left){
+      mStop(); const ms = Date.now() - M.t0, best = S.best[SET.id], fb = $("m-fb");
+      $("m-time").textContent = (ms / 1000).toFixed(1) + " s";
+      if (!best || ms < best){ S.best[SET.id] = ms; save(); }
+      fb.className = "fb ok"; fb.textContent = "Fertig in " + (ms / 1000).toFixed(1) + " Sekunden." + ((!best || ms < best) ? " Neue Bestzeit." : ""); mBest();
+    }
+  } else {
+    M.lock = true; a.classList.remove("sel"); a.classList.add("no"); b.classList.add("no");
+    setTimeout(() => { a.classList.remove("no"); b.classList.remove("no"); M.lock = false; }, 450);
+  }
+});
+$("m-new").addEventListener("click", mStart);
+
+/* ================= TEST ================= */
+let X = [];
+function xReset(){ $("x-cfg").hidden = false; $("x-form").hidden = true; $("x-res").hidden = true; X = [];
+  const hv = hasVerbs(SET); $("x-vf-l").hidden = !hv; if (hv) $("x-vf-t").textContent = "Verbformen (" + curTense(SET).n + ")"; }
+$("x-cfg").addEventListener("submit", e => {
+  e.preventDefault();
+  const items = activeItems(SET), res = $("x-res");
+  if (!items.length){ res.hidden = false; res.className = "fb bad"; res.textContent = "Dieses Set ist noch leer."; return; }
+  let types = []; if ($("x-w").checked) types.push("w"); if ($("x-mc").checked && items.length >= 4) types.push("mc"); if ($("x-tf").checked && items.length >= 2) types.push("tf");
+  const T = curTense(SET), fq = (hasVerbs(SET) && $("x-vf").checked) ? shuffle(formQuestions(SET, T)) : [];
+  if (fq.length) types.push("vf");
+  if (!types.length) types = ["w"];
+  const n = +$("x-n").value, pool = shuffle(items); X = [];
+  for (let i = 0; i < n; i++){
+    const type = types[i % types.length], it = pool[i % pool.length];
+    if (type === "vf"){ const q = fq[i % fq.length]; X.push({type:"w", prompt:q.prompt + (q.sub ? " (" + q.sub + ")" : ""), small:T.n + ": " + q.label + " …", answers:q.answers, pretty:q.pretty}); }
+    else if (type === "w") X.push({type:"w", prompt:it.d, small:it.hint || "", answers:wordAnswers(SET, it), pretty:it.t});
+    else if (type === "mc") X.push({type:"mc", prompt:it.d, small:it.hint || "", pretty:it.t, opts:shuffle(shuffle(items.filter(x => x !== it && x.d !== it.d)).slice(0, 3).map(x => x.t).concat(it.t))});
+    else { const other = shuffle(items.filter(x => x !== it && x.d !== it.d))[0], right = !other || Math.random() < .5; X.push({type:"tf", prompt:it.d + " = " + (right ? it.t : other.t), small:"", truth:right, pretty:it.d + " = " + it.t}); }
+  }
+  X = shuffle(X);
+  $("x-qs").innerHTML = X.map((q, i) => {
+    let a;
+    if (q.type === "w") a = '<input type="text" id="x-i' + i + '" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Antwort ' + (i + 1) + '">';
+    else if (q.type === "mc") a = '<div class="ans">' + q.opts.map(o => '<label><input type="radio" name="x-r' + i + '" value="' + esc(o) + '"> ' + esc(o) + "</label>").join("") + "</div>";
+    else a = '<div class="ans"><label><input type="radio" name="x-r' + i + '" value="1"> Richtig</label><label><input type="radio" name="x-r' + i + '" value="0"> Falsch</label></div>';
+    return '<fieldset class="q"><legend>' + (i + 1) + ". " + esc(q.prompt) + (q.small ? " <small>" + esc(q.small) + "</small>" : "") + "</legend>" + a + "</fieldset>";
+  }).join("");
+  $("x-cfg").hidden = true; $("x-form").hidden = false; $("x-submit").hidden = false; res.hidden = true;
+});
+$("x-form").addEventListener("submit", e => {
+  e.preventDefault(); let good = 0;
+  X.forEach((q, i) => {
+    const box = $("x-qs").children[i]; let ok;
+    if (q.type === "w") ok = grade($("x-i" + i).value, q.answers) === "ok";
+    else { const r = box.querySelector("input:checked"); ok = !!r && (q.type === "mc" ? r.value === q.pretty : (r.value === "1") === q.truth); }
+    if (ok) good++;
+    box.className = "q " + (ok ? "ok" : "bad");
+    box.querySelectorAll("input").forEach(x => x.disabled = true);
+    box.insertAdjacentHTML("beforeend", '<p><span class="verdict">' + (ok ? "Richtig" : "Falsch") + "</span>" + (ok ? "" : ' · <span class="corr">' + esc(q.pretty) + "</span>") + "</p>");
+  });
+  const res = $("x-res"), pct = Math.round(100 * good / X.length);
+  res.hidden = false; res.className = "fb " + (pct >= 80 ? "ok" : "bad"); res.textContent = good + " von " + X.length + " richtig (" + pct + " %). Die Korrekturen stehen bei jeder Frage.";
+  $("x-submit").hidden = true; res.scrollIntoView({block:"center"});
+});
+$("x-new").addEventListener("click", xReset);
+
+/* ================= LISTE ================= */
+function conjHtml(set, it){
+  let h = "";
+  tensesOf(set).forEach(T => {
+    const rows = rowsOf(set, it, T.id); if (!rows) return;
+    h += '<div><h4>' + esc(T.n) + '</h4><div class="forms' + (rows.length < 6 ? " one" : "") + '">' + rows.map((r, i) => {
+      const l = r.np ? r.l : shortLabel(r.l), tr = T.id === "pres" && it.v.tr && it.v.tr.indexOf(i) > -1;
+      return "<span><small>" + esc(l) + (/'$/.test(l) ? "" : " ") + "</small><span" + (tr ? ' class="t"' : "") + ">" + esc(r.f) + "</span></span>";
+    }).join("") + "</div></div>";
+  });
+  const note = set.lang === "fr" ? (it.v.note || "") : noteOf(set, it, "forms");
+  if (note) h += '<p class="note">' + esc(note) + "</p>";
+  return h || '<p class="note">Für dieses Verb sind keine Formen hinterlegt.</p>';
+}
+function renderList(){
+  const set = SET, q = norm($("li-q").value), conj = hasVerbs(set); let html = "", last = null, shown = 0;
+  set.items.forEach((it, idx) => {
+    if (q && norm(it.t).indexOf(q) < 0 && norm(it.d).indexOf(q) < 0) return;
+    shown++;
+    if (set.id === "fr-rev" && !q && it.v.sec !== last){ last = it.v.sec; html += "<h3>" + SEC[last] + "</h3>"; }
+    const del = set.builtin ? "" : '<button type="button" class="mini" data-del="' + idx + '">Löschen</button>';
+    if (it.v && conj) html += '<details class="item" data-i="' + idx + '"><summary><b>' + esc(it.t) + '</b><span class="d">' + esc(it.d) + (it.hint ? " (" + esc(it.hint) + ")" : "") + "</span>" + del + '</summary><div class="conj"></div></details>';
+    else html += '<div class="item plain"><b>' + esc(it.t) + '</b><span class="d">' + esc(it.d) + "</span>" + del + "</div>";
+  });
+  $("li-list").innerHTML = html;
+  $("li-info").textContent = set.items.length ? (q ? shown + " Treffer" : set.items.length + " Einträge." + (conj ? " Tippe ein Verb an, um alle Zeiten zu sehen. Blau und fett sind die Stolperfallen im Présent." : "")) : "Dieses Set ist noch leer. Füge oben ein Wort hinzu oder importiere eine Liste.";
+}
+$("li-list").addEventListener("toggle", e => {
+  const d = e.target; if (!d.classList || !d.classList.contains("item") || !d.open) return;
+  const c = d.querySelector(".conj"); if (!c.innerHTML) c.innerHTML = conjHtml(SET, SET.items[+d.dataset.i]);
+}, true);
+$("li-list").addEventListener("click", e => {
+  const sum = e.target.closest("summary");
+  if (sum && e.target.dataset.del === undefined){ const d = sum.parentNode, c = d.querySelector(".conj"); if (!c.innerHTML) c.innerHTML = conjHtml(SET, SET.items[+d.dataset.i]); return; }
+  if (e.target.dataset.del === undefined) return;
+  e.preventDefault();
+  const it = SET.items.splice(+e.target.dataset.del, 1)[0]; if (!it) return;
+  const p = kp(SET); Object.keys(S.box).concat(Object.keys(S.mc)).forEach(k => { if (k === p + "inf:" + it.t || k.indexOf(p + it.t + ":") === 0){ delete S.box[k]; delete S.mc[k]; } });
+  save(); afterEdit();
+});
+$("li-q").addEventListener("input", renderList);
+function afterEdit(){ delete TC[SET.id]; renderList(); qLearn.reset(); qForm.reset(); kStart(activeItems(SET)); mStart(); fillSelect(); renderModes(); }
+
+function ownFormsHtml(){
+  if (SET.lang === "fr") return FRP.map((p, i) => '<div class="row"><label class="pron" for="o-f' + i + '">' + p + '</label><div class="cell"><input id="o-f' + i + '" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Présent"></div></div>').join("") +
+    '<div class="fields"><label>Participe passé (optional) <input id="o-pp" type="text" autocapitalize="off" placeholder="z. B. oublié"></label><label>Passé composé mit <select id="o-aux"><option value="a">avoir</option><option value="e">être</option></select></label></div>';
+  if (SET.lang === "en") return '<div class="fields"><label>Simple past <input id="o-past" type="text" autocapitalize="off" placeholder="z. B. went"></label><label>Past participle <input id="o-ppe" type="text" autocapitalize="off" placeholder="z. B. gone"></label></div>';
+  return "";
+}
+$("o-verb").addEventListener("change", function(){ $("o-forms").hidden = !this.checked; });
+function addItem(set, de, t, v){
+  const it = cleanItem({t, d:de, v}); if (!it) return "empty";
+  if (set.items.some(x => x.t === it.t)) return "dup";
+  set.items.push(it); return "ok";
+}
+$("o-form").addEventListener("submit", e => {
+  e.preventDefault(); const fb = $("o-fb"); let v = null;
+  const bad = m => { fb.className = "fb bad"; fb.textContent = m; };
+  if ($("o-verb").checked && SET.lang === "fr"){
+    const f = []; for (let i = 0; i < 6; i++){ let x = norm($("o-f" + i).value).replace(/^(?:j'\s*|(?:je|tu|ils|elles|il|elle|on|nous|vous)\s+)/, "").replace(/^(?:[mts]'\s*|(?:me|te|se|nous|vous)\s+)/, ""); if (!x) return bad("Fülle alle sechs Présent-Formen aus oder nimm das Häkchen weg."); f.push(x); }
+    v = {f, pp:$("o-pp").value, aux:$("o-aux").value};
+  } else if ($("o-verb").checked && SET.lang === "en"){
+    if (!$("o-past").value.trim() || !$("o-ppe").value.trim()) return bad("Fülle Simple past und Past participle aus oder nimm das Häkchen weg.");
+    v = {past:$("o-past").value, pp:$("o-ppe").value};
+  }
+  const r = addItem(SET, $("o-de").value, $("o-fr").value, v);
+  if (r === "empty") return bad("Beide Seiten müssen ausgefüllt sein.");
+  if (r === "dup") return bad("Dieses Wort gibt es in diesem Set schon.");
+  fb.className = "fb ok"; fb.textContent = "Hinzugefügt: " + norm($("o-fr").value) + " – " + $("o-de").value.trim();
+  $("o-form").querySelectorAll("input[type=text]").forEach(x => x.value = "");
+  save(); afterEdit(); $("o-de").focus();
+});
+function splitLine(l){
+  const seps = ["\t", " – ", " - ", ";", " = ", "=", ","];
+  for (let i = 0; i < seps.length; i++){ const x = l.indexOf(seps[i]); if (x > 0) return [l.slice(0, x).trim(), l.slice(x + seps[i].length).trim()]; }
+  return null;
+}
+$("l-import").addEventListener("click", () => {
+  const fb = $("l-fb"), frFirst = $("l-order").value === "fr"; let ok = 0, dup = 0, bad = 0;
+  $("l-text").value.split(/\r?\n/).forEach(l => {
+    if (!l.trim()) return;
+    const p = splitLine(l); if (!p || !p[0] || !p[1]){ bad++; return; }
+    const r = addItem(SET, frFirst ? p[1] : p[0], frFirst ? p[0] : p[1], null);
+    if (r === "ok") ok++; else if (r === "dup") dup++; else bad++;
+  });
+  if (ok){ save(); afterEdit(); }
+  fb.className = "fb " + (ok ? "ok" : "bad");
+  fb.textContent = ok + " importiert" + (dup ? ", " + dup + " gab es schon" : "") + (bad ? ", " + bad + " Zeilen ohne Trennzeichen übersprungen" : "") + ".";
+});
+$("l-export").addEventListener("click", () => {
+  const frFirst = $("l-order").value === "fr", fb = $("l-fb");
+  if (!SET.items.length){ fb.className = "fb bad"; fb.textContent = "Dieses Set ist noch leer."; return; }
+  $("l-text").value = SET.items.map(o => frFirst ? o.t + "\t" + o.d : o.d + "\t" + o.t).join("\n");
+  fb.className = "fb ok"; fb.textContent = SET.items.length + " Wörter, mit Tab getrennt. So kannst du sie auch in Quizlet importieren.";
+});
+$("l-file").addEventListener("change", function(){
+  const file = this.files && this.files[0]; if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => { $("l-text").value = String(rd.result || ""); $("l-fb").className = "fb"; $("l-fb").textContent = "Datei geladen. Prüfe die Reihenfolge und drücke «Importieren»."; };
+  rd.readAsText(file);
+});
+function copyFrom(ta, fb){
+  if (!ta.value){ fb.className = "fb bad"; fb.textContent = "Das Feld ist leer."; return; }
+  const done = () => { fb.className = "fb ok"; fb.textContent = "Kopiert."; };
+  const fallback = () => { ta.focus(); ta.select(); fb.className = "fb"; fb.textContent = "Text ist markiert. Kopiere ihn von Hand."; };
+  try { navigator.clipboard.writeText(ta.value).then(done, fallback); } catch(e){ fallback(); }
+}
+$("l-copy").addEventListener("click", () => copyFrom($("l-text"), $("l-fb")));
+let delArmed = false;
+$("li-del").addEventListener("click", function(){
+  if (!delArmed){ delArmed = true; this.textContent = "Wirklich löschen? Nochmal tippen."; setTimeout(() => { delArmed = false; this.textContent = "Dieses Set löschen"; }, 4000); return; }
+  delArmed = false; this.textContent = "Dieses Set löschen";
+  const p = SET.id + "|"; ["box","mc"].forEach(m => Object.keys(S[m]).forEach(k => { if (k.indexOf(p) === 0) delete S[m][k]; }));
+  delete S.best[SET.id]; delete S.opt.tense[SET.id]; S.sets = S.sets.filter(s => s !== SET); save(); goHome();
+});
+
+/* ================= BIBLIOTHEK ================= */
+function renderLib(){
+  $("lib-grid").innerHTML = allSets().map(set => {
+    const n = set.items.length, sure = set.items.filter(it => (S.box[kWord(set, it)] || 0) >= 2).length, nv = set.items.filter(it => it.v).length;
+    return '<button type="button" class="setcard" data-set="' + esc(set.id) + '"><span class="tag">' + esc(LANG[set.lang].name) + "</span><b>" + esc(set.name) + '</b><span class="meta">' + n + (n === 1 ? " Eintrag" : " Einträge") + (nv ? ", davon " + nv + " Verben mit Formen" : "") + '</span><span class="bar"><i style="width:' + (n ? 100 * sure / n : 0) + '%"></i></span><span class="meta">' + sure + " von " + n + " Wörtern sitzen</span></button>";
+  }).join("");
+}
+$("lib-grid").addEventListener("click", e => { const b = e.target.closest(".setcard"); if (b) openSet(b.dataset.set, null); });
+$("n-form").addEventListener("submit", e => {
+  e.preventDefault(); const name = $("n-name").value.trim(), fb = $("n-fb");
+  if (!name){ fb.className = "fb bad"; fb.textContent = "Gib dem Set einen Namen."; return; }
+  const set = cleanSet({name, lang:$("n-lang").value, items:[]}); S.sets.push(set); save();
+  $("n-name").value = ""; fb.className = "fb"; fb.textContent = "Danach kannst du Wörter eintippen oder eine Liste aus Quizlet einfügen.";
+  openSet(set.id, "liste");
+});
+$("b-copy").addEventListener("click", () => copyFrom($("b-text"), $("b-fb")));
+$("b-make").addEventListener("click", () => { $("b-text").value = JSON.stringify({app:"verbes-present", v:2, data:S}); $("b-fb").className = "fb ok"; $("b-fb").textContent = "Backup erzeugt. Kopiere den Text und bewahre ihn auf."; });
+$("b-load").addEventListener("click", () => {
+  const fb = $("b-fb"); let o = null; try { o = JSON.parse($("b-text").value); } catch(e){}
+  if (!o || o.app !== "verbes-present" || !o.data){ fb.className = "fb bad"; fb.textContent = "Das ist kein gültiges Backup. Füge den ganzen Text ein, den «Backup erzeugen» ausgibt."; return; }
+  adopt(o.data); Object.keys(TC).forEach(k => delete TC[k]); S.cur = {set:null, mode:"karten"}; save(); renderLib();
+  fb.className = "fb ok"; fb.textContent = "Backup eingespielt: " + Object.keys(S.box).length + " geübte Einträge, " + S.sets.length + " eigene Sets.";
+});
+let armed = false; const rb = $("reset");
+rb.addEventListener("click", () => {
+  if (!armed){ armed = true; rb.textContent = "Wirklich zurücksetzen? Eigene Sets bleiben."; setTimeout(() => { armed = false; rb.textContent = "Fortschritt zurücksetzen"; }, 4000); return; }
+  S.box = {}; S.mc = {}; S.best = {}; save(); armed = false; rb.textContent = "Fortschritt zurücksetzen"; renderLib();
+});
+
+/* ================= NAVIGATION ================= */
+const MODES = ["karten","lernen","zuordnen","test","formen","liste"];
+function renderModes(){
+  const hv = hasVerbs(SET);
+  document.querySelectorAll("#modes button").forEach(b => { if (b.dataset.mode === "formen") b.hidden = !hv; });
+  if (!hv && S.cur.mode === "formen") showMode("liste");
+}
+function renderTenses(){
+  const T = curTense(SET);
+  $("tenses").innerHTML = tensesOf(SET).map(t => '<button type="button" data-t="' + t.id + '" aria-pressed="' + (t.id === T.id) + '">' + esc(t.n) + "</button>").join("");
+  document.querySelectorAll("#sub button").forEach(b => b.setAttribute("aria-pressed", b.dataset.sub === S.opt.sub ? "true" : "false"));
+  $("fs-einzeln").hidden = S.opt.sub !== "einzeln"; $("fs-tabelle").hidden = S.opt.sub !== "tabelle";
+}
+$("tenses").addEventListener("click", e => { const t = e.target.dataset.t; if (!t) return; S.opt.tense[SET.id] = t; save(); renderTenses(); qForm.reset(); fillSelect(); });
+$("sub").addEventListener("click", e => { const s = e.target.dataset.sub; if (!s) return; S.opt.sub = s; save(); renderTenses(); });
+function showMode(mode){
+  if (MODES.indexOf(mode) < 0 || (mode === "formen" && !hasVerbs(SET))) mode = "karten";
+  S.cur.mode = mode; save();
+  document.querySelectorAll("#modes button").forEach(b => b.setAttribute("aria-selected", b.dataset.mode === mode ? "true" : "false"));
+  $("v-lib").hidden = true; MODES.forEach(m => $("v-" + m).hidden = m !== mode);
+  $("filter").hidden = SET.id !== "fr-rev" || mode === "liste";
+  if (mode !== "zuordnen") mStop();
+  if (mode === "karten") kShow();
+  if (mode === "lernen") qLearn.progress();
+  if (mode === "zuordnen") mStart();
+  if (mode === "test") xReset();
+  if (mode === "formen"){ renderTenses(); qForm.progress(); }
+  if (mode === "liste") renderList();
+  const act = document.querySelector('#modes button[aria-selected="true"]'); if (act && act.scrollIntoView) act.scrollIntoView({block:"nearest", inline:"nearest"});
+}
+function openSet(id, mode){
+  const set = getSet(id); if (!set) return goHome();
+  SET = set; S.cur.set = id; save();
+  $("home").hidden = false; $("modes").hidden = false; $("brand").textContent = set.name;
+  $("brand-sub").textContent = LANG[set.lang].name + " · " + set.items.length + " Einträge";
+  $("k-dir").value = S.opt.dir === "t" ? "t" : "de"; $("k-dir").options[1].textContent = LANG[set.lang].name;
+  $("o-form").hidden = !!set.builtin; $("li-io").hidden = !!set.builtin; $("li-danger").hidden = !!set.builtin; $("li-rules").hidden = set.id !== "fr-rev";
+  $("o-fr-l").textContent = LANG[set.lang].name; $("o-verb-l").hidden = !LANG[set.lang].conj; $("o-verb").checked = false; $("o-forms").hidden = true; $("o-forms").innerHTML = ownFormsHtml();
+  $("li-q").value = ""; $("opt-group").value = GROUPS[S.opt.group] ? S.opt.group : "all";
+  ["opt-ebenso","ebenso","opt-hide","hide","opt-mc","mcFirst","opt-mc2","mcFirst"].forEach((x, i, a) => { if (i % 2 === 0) $(x).checked = !!S.opt[a[i + 1]]; });
+  setAccents(); renderModes(); qLearn.reset(); qForm.reset(); kStart(activeItems(set)); fillSelect();
+  showMode(mode || (set.items.length ? S.cur.mode : "liste")); window.scrollTo(0, 0);
+}
+function goHome(){
+  mStop(); SET = null; S.cur.set = null; save();
+  $("home").hidden = true; $("modes").hidden = true; $("filter").hidden = true; $("brand").textContent = "Lernkartei"; $("brand-sub").textContent = "Wörter und Verben, Französisch und Englisch";
+  MODES.forEach(m => $("v-" + m).hidden = true); $("v-lib").hidden = false; renderLib(); window.scrollTo(0, 0);
+}
+$("home").addEventListener("click", goHome);
+$("modes").addEventListener("click", e => { if (e.target.dataset.mode) showMode(e.target.dataset.mode); });
+function refilter(){ save(); qLearn.reset(); qForm.reset(); kStart(activeItems(SET)); fillSelect(); if (S.cur.mode === "zuordnen") mStart(); if (S.cur.mode === "test") xReset(); }
+$("opt-group").addEventListener("change", function(){ S.opt.group = this.value; refilter(); });
+$("opt-ebenso").addEventListener("change", function(){ S.opt.ebenso = this.checked; refilter(); });
+$("opt-hide").addEventListener("change", function(){ S.opt.hide = this.checked; save(); qForm.reset(); });
+function setMC(on){ S.opt.mcFirst = on; save(); $("opt-mc").checked = on; $("opt-mc2").checked = on; qLearn.reset(); qForm.reset(); }
+$("opt-mc").addEventListener("change", function(){ setMC(this.checked); });
+$("opt-mc2").addEventListener("change", function(){ setMC(this.checked); });
+
+/* ================= TASTATUR UND TIPPEN AUF DEM HANDY ================= */
+/* Tippen auf einen Knopf im selben Blatt darf das Eingabefeld nicht verlassen: sonst klappt die Handy-Tastatur zu,
+   alles verschiebt sich und der Tipp trifft den Knopf nicht mehr. */
+document.addEventListener("mousedown", e => {
+  const b = e.target.closest && e.target.closest("button"), a = document.activeElement;
+  if (b && a && a.tagName === "INPUT" && a.type === "text" && b.closest("form") && b.closest("form") === a.closest("form")) e.preventDefault();
+});
+const coarse = window.matchMedia && window.matchMedia("(pointer:coarse)").matches;
+function keepButtonVisible(){
+  const a = document.activeElement; if (!a || a.tagName !== "INPUT" || a.type !== "text") return;
+  const form = a.closest("form.sheet"); if (!form) return;
+  const btn = form.querySelector("button[type=submit]"); if (!btn || btn.hidden) return;
+  const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight, r = btn.getBoundingClientRect();
+  if (r.bottom > vh - 8) window.scrollBy(0, Math.min(r.bottom - vh + 12, form.getBoundingClientRect().top - 4));
+}
+document.addEventListener("focusin", e => {
+  if (e.target.tagName === "INPUT" && e.target.type === "text" && e.target.closest("form.sheet")){ if (coarse) document.body.classList.add("typing"); setTimeout(keepButtonVisible, 350); }
+});
+document.addEventListener("focusout", () => setTimeout(() => { const a = document.activeElement; if (!a || a.tagName !== "INPUT" || a.type !== "text") document.body.classList.remove("typing"); }, 50));
+if (window.visualViewport) window.visualViewport.addEventListener("resize", () => setTimeout(keepButtonVisible, 50));
+/* Enter springt in Tabelle und Test zum nächsten Feld, statt sofort alles abzugeben */
+function enterNext(box, lastSubmits){
+  box.addEventListener("keydown", e => {
+    if (e.key !== "Enter" || e.target.tagName !== "INPUT" || e.target.type !== "text" || e.target.disabled) return;
+    const ins = Array.prototype.filter.call(box.querySelectorAll("input[type=text]"), x => !x.disabled), i = ins.indexOf(e.target);
+    if (i > -1 && i < ins.length - 1){ e.preventDefault(); ins[i + 1].focus(); }
+    else if (!lastSubmits) e.preventDefault();
+  });
+}
+enterNext($("t-rows"), true); enterNext($("x-qs"), false);
+document.querySelectorAll("#f-in,#u-in").forEach(x => x.setAttribute("enterkeyhint", "go"));
+
+window.__lk = {sets:allSets, rowsOf, LANG, fullRow};
+if (S.cur.set && getSet(S.cur.set)) openSet(S.cur.set, S.cur.mode); else goHome();
+})();
+</script>
+
+</body>
+</html>

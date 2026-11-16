@@ -1,0 +1,598 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Planimetrie-Trainer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+/* Layout: kariertes Heftblatt, eine Spalte, vier Ansichten ueber eine feste Tab-Leiste.
+   Gelb und Pink sind die Leuchtstifte aus dem Skript: Gelb = erstes Stueck, Pink = entsprechendes Stueck. */
+:root{
+  --bg:#f5f6fb; --card:#ffffff; --ink:#1a2342; --mut:#5a6486; --line:#d3d8e8; --grid:rgba(60,90,190,.07);
+  --pen:#2346c8; --pen-ink:#ffffff; --yel:#ffe640; --pnk:#ff86b3; --pnk-s:#e8327c; --hi-ink:#1a2342;
+  --ok:#17804a; --bad:#c0352e; --soft:#eceffa;
+  --f-head:"Space Grotesk",system-ui,sans-serif; --f-body:"Inter",system-ui,sans-serif; --f-math:"STIX Two Text","Cambria Math",Georgia,serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#11152a; --card:#1a2040; --ink:#e9ecf8; --mut:#9ba4c6; --line:#343c66; --grid:rgba(140,160,255,.06);
+  --pen:#93a8ff; --pen-ink:#11152a; --yel:#e2cb22; --pnk:#e56a9d; --pnk-s:#ff8fbb; --hi-ink:#11152a;
+  --ok:#5acb8d; --bad:#ff847b; --soft:#232a52; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#11152a; --card:#1a2040; --ink:#e9ecf8; --mut:#9ba4c6; --line:#343c66; --grid:rgba(140,160,255,.06);
+  --pen:#93a8ff; --pen-ink:#11152a; --yel:#e2cb22; --pnk:#e56a9d; --pnk-s:#ff8fbb; --hi-ink:#11152a;
+  --ok:#5acb8d; --bad:#ff847b; --soft:#232a52; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.55 var(--f-body);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:20px 20px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:720px;margin:0 auto;padding-block:18px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font:700 26px/1.15 var(--f-head);margin:0 0 4px;text-wrap:balance}
+h2{font:700 21px/1.2 var(--f-head);margin:0 0 10px;text-wrap:balance}
+h3{font:600 12px/1.3 var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin:18px 0 6px}
+p{margin:0 0 10px} .sub{color:var(--mut);margin-bottom:14px}
+ul,ol{margin:0 0 10px;padding-left:22px} li{margin-bottom:4px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--pen);outline-offset:2px}
+
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding-block:8px;margin-bottom:14px}
+.tab{border:1.5px solid var(--line);background:var(--card);border-radius:10px;padding:9px 2px;font:600 14px var(--f-body)}
+.tab[aria-selected="true"]{background:var(--pen);border-color:var(--pen);color:var(--pen-ink)}
+
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:12px}
+.chips.wrapc{flex-wrap:wrap;overflow:visible}
+.chip{flex:none;border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:14px;white-space:nowrap}
+.chip.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.chip.good{border-color:var(--ok);color:var(--ok)}
+
+.card,.chap{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 16px;margin-bottom:16px;min-width:0}
+.chap{scroll-margin-top:calc(env(safe-area-inset-top,0px) + 64px)}
+.plan{background:var(--soft);border:0}
+.plan ol{margin:0}
+
+.m{font-family:var(--f-math);font-size:1.08em;white-space:nowrap}
+.m i{font-style:italic}
+.mb{background:var(--soft);border-radius:10px;padding:12px 10px;margin:8px 0 10px;text-align:center;overflow-x:auto;font-size:1.12em}
+.fr{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;margin:0 .18em;line-height:1.25}
+.fr>span:first-child{border-bottom:1.2px solid currentColor;padding:0 .25em .08em}
+.fr>span:last-child{padding:.08em .25em 0}
+.rt{display:inline-flex;align-items:center;vertical-align:middle}
+.rt>span{border-top:1.2px solid currentColor;padding:.05em .15em 0;margin-left:1px}
+.ov{border-top:1.2px solid currentColor;padding-top:1px}
+mark{color:var(--hi-ink);padding:0 4px;border-radius:3px}
+mark.y{background:var(--yel)} mark.p{background:var(--pnk)}
+
+figure{margin:10px 0 12px;text-align:center}
+figure svg{width:100%;max-width:440px;height:auto}
+figcaption{font-size:14px;color:var(--mut);text-align:left;margin-top:4px}
+.ln{stroke:var(--ink);stroke-width:1.5;fill:none}
+.th{stroke:var(--mut);stroke-width:1;fill:none}
+.da{stroke-dasharray:5 4}
+.hy{stroke:var(--yel);stroke-width:8;stroke-linecap:round;fill:none}
+.hp{stroke:var(--pnk);stroke-width:8;stroke-linecap:round;fill:none}
+.fy{fill:var(--yel);fill-opacity:.65;stroke:none}
+.fp{fill:var(--pnk);fill-opacity:.6;stroke:none}
+.tx{fill:var(--ink);font:italic 15px var(--f-math);stroke:none}
+.dot{fill:var(--ink);stroke:none}
+.pt .s{stroke:var(--ink);stroke-width:1.5;fill:none}
+.pt .a{fill:var(--line);fill-opacity:.55;stroke:none}
+.pt .d{fill:var(--ink);stroke:none}
+.pt.on .s{stroke:var(--pnk-s);stroke-width:4.5}
+.pt.on .a{fill:var(--yel);fill-opacity:.9}
+.pt.on .d{fill:var(--pnk-s);stroke:var(--pnk-s);stroke-width:6}
+
+.def{background:var(--soft);border-radius:10px;padding:10px 12px;min-height:74px;margin-bottom:10px}
+.def b{font-family:var(--f-head)}
+.hook{border-left:4px solid var(--yel);padding:4px 0 4px 12px;margin:10px 0}
+.warn{border-left:4px solid var(--pnk-s);padding:4px 0 4px 12px;margin:10px 0}
+.steps{list-style:none;padding:0;margin:0 0 10px}
+.steps li{padding:7px 0;border-bottom:1px dashed var(--line);overflow-x:auto}
+.steps li:last-child{border-bottom:0}
+details{border:1.5px solid var(--line);border-radius:10px;padding:0 12px;margin:10px 0}
+summary{font-weight:600;padding:10px 0;cursor:pointer}
+.forms{list-style:none;padding:0;margin:0 0 8px}
+.forms li{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:8px 0;border-top:1px dashed var(--line)}
+.forms .how{color:var(--mut);font-size:14px}
+.cover .sol{filter:blur(7px);cursor:pointer}
+.cover .sol.show{filter:none}
+
+.ctl{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;margin:6px 0}
+.ctl input[type=range]{width:100%;min-width:0;accent-color:var(--pen)}
+.ctl output{font-variant-numeric:tabular-nums;min-width:4.5em;text-align:right;font-weight:600}
+.live{font-variant-numeric:tabular-nums;background:var(--soft);border-radius:10px;padding:10px 12px;overflow-x:auto}
+.live div{padding:3px 0}
+
+.done{display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-weight:600}
+.done input{width:20px;height:20px;accent-color:var(--ok)}
+.btn{border:1.5px solid var(--line);background:var(--card);border-radius:10px;padding:10px 14px;font-weight:600}
+.btn.pri{background:var(--pen);border-color:var(--pen);color:var(--pen-ink)}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.row .btn{flex:1 1 auto}
+
+.fc{min-height:230px;display:flex;flex-direction:column;justify-content:center;gap:14px;text-align:center;cursor:pointer}
+.fc .q{font:700 20px/1.3 var(--f-head);text-wrap:balance}
+.fc .a{border-top:1px dashed var(--line);padding-top:14px;overflow-x:auto}
+.fc .hint{color:var(--mut);font-size:14px}
+.bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin-bottom:6px}
+.bar i{display:block;height:100%;background:var(--ok);width:0}
+.inrow{display:flex;gap:8px;align-items:center;margin:12px 0}
+.inrow input{flex:1;min-width:0;font:600 18px var(--f-body);padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+.fb{font-weight:600;min-height:1.5em}
+.fb.ok{color:var(--ok)} .fb.bad{color:var(--bad)}
+.stat{color:var(--mut);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:no-preference){.bar i{transition:width .3s}}
+</style>
+
+<div class="wrap">
+  <h1>Planimetrie-Trainer</h1>
+  <p class="sub">Kreisteile, Kreisring, Proportionen, Strahlensätze und Ähnlichkeit. <span id="prog"></span></p>
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" id="t-lernen" data-t="lernen">Lernen</button>
+    <button class="tab" role="tab" id="t-formeln" data-t="formeln">Formeln</button>
+    <button class="tab" role="tab" id="t-karten" data-t="karten">Karten</button>
+    <button class="tab" role="tab" id="t-ueben" data-t="ueben">Üben</button>
+  </nav>
+  <main id="v-lernen"></main>
+  <main id="v-formeln" hidden></main>
+  <main id="v-karten" hidden></main>
+  <main id="v-ueben" hidden></main>
+</div>
+
+<script>
+/* ---------- Mathe-Satz: {a|b} Bruch, √[x] Wurzel, _x tief, ^2 hoch, ~SA~ Strecke, #cm aufrecht ---------- */
+function m(s){
+  s=s.replace(/#([A-Za-z]+)|([A-Za-zα-ω]+)/g,(x,u,v)=>u?u:(v==='π'?'π':'‹'+v+'›'));
+  s=s.replace(/_(‹[^›]*›|\d+)/g,'<sub>$1</sub>').replace(/\^(‹[^›]*›|\d+)/g,'<sup>$1</sup>');
+  s=s.replace(/~([^~]+)~/g,'<span class="ov">$1</span>');
+  let p;
+  do{p=s;
+    s=s.replace(/\{([^{}|]*)\|([^{}|]*)\}/g,'<span class="fr"><span>$1</span><span>$2</span></span>');
+    s=s.replace(/√\[([^\[\]]*)\]/g,'<span class="rt">√<span>$1</span></span>');
+  }while(s!==p);
+  return '<span class="m">'+s.replace(/‹/g,'<i>').replace(/›/g,'</i>')+'</span>';
+}
+const mb=s=>'<div class="mb">'+m(s)+'</div>';
+const PI=Math.PI, D2R=PI/180;
+const f=n=>n.toFixed(1);
+const n2=x=>String(Math.round(x*100)/100);
+const pt=(cx,cy,r,d)=>[cx+r*Math.cos(d*D2R),cy-r*Math.sin(d*D2R)];
+const L=(a,b,c)=>`<line class="${c}" x1="${f(a[0])}" y1="${f(a[1])}" x2="${f(b[0])}" y2="${f(b[1])}"/>`;
+const T=(p,s,anc)=>`<text class="tx" x="${f(p[0])}" y="${f(p[1])}" text-anchor="${anc||'middle'}">${s}</text>`;
+const DOT=(p,r)=>`<circle class="dot" cx="${f(p[0])}" cy="${f(p[1])}" r="${r||3}"/>`;
+const svg=(vb,inner,label)=>`<svg viewBox="${vb}" role="img" aria-label="${label}">${inner}</svg>`;
+
+/* ---------- Formelsammlung mit Umformungen ---------- */
+const FORMS=[
+ {id:'umfang',n:'Kreisumfang',b:'U = 2·π·r = π·d',f:[['r = {U|2·π}','durch 2π teilen'],['d = {U|π}','durch π teilen']]},
+ {id:'flaeche',n:'Kreisfläche',b:'A = π·r^2 = {π·d^2|4}',f:[['r = √[{A|π}]','durch π teilen, Wurzel ziehen'],['d = 2·√[{A|π}]','erst r, dann verdoppeln']]},
+ {id:'bogen',n:'Kreisbogen',b:'b = {2·π·r·α|360°}',f:[['r = {b·360°|2·π·α}','mal 360°, durch 2π·α'],['α = {b·360°|2·π·r}','mal 360°, durch 2π·r']]},
+ {id:'sektor',n:'Kreissektor (mit Winkel)',b:'A_S = {π·r^2·α|360°}',f:[['r = √[{A_S·360°|π·α}]','mal 360°, durch π·α, Wurzel'],['α = {A_S·360°|π·r^2}','mal 360°, durch π·r²']]},
+ {id:'sektor2',n:'Kreissektor (mit Bogen)',b:'A_S = {b·r|2}',f:[['b = {2·A_S|r}','mal 2, durch r'],['r = {2·A_S|b}','mal 2, durch b']]},
+ {id:'segment',n:'Kreissegment',b:'A_Segment = A_Sektor − A_Dreieck',f:[['A_Sektor = A_Segment + A_Dreieck','Dreieck addieren'],['A_Dreieck = A_Sektor − A_Segment','umstellen']]},
+ {id:'ring',n:'Kreisring (mit R und r)',b:'A = π·R^2 − π·r^2 = π·(R^2 − r^2)',f:[['R = √[{A|π} + r^2]','durch π, plus r², Wurzel'],['r = √[R^2 − {A|π}]','durch π, von R² abziehen, Wurzel']]},
+ {id:'ring2',n:'Kreisring (mit mittlerem Radius)',b:'A = 2·π·r_m·b',f:[['r_m = {A|2·π·b}','durch 2π·b'],['b = {A|2·π·r_m}','durch 2π·r_m'],['b = R − r','Ringbreite'],['r_m = {R + r|2}','Mittelwert der Radien'],['R = r_m + {b|2}','halbe Breite dazu'],['r = r_m − {b|2}','halbe Breite weg']]},
+ {id:'prop',n:'Proportion',b:'{a|b} = {c|d}  ⇔  a·d = b·c',f:[['a = {b·c|d}','über Kreuz, durch d'],['b = {a·d|c}','über Kreuz, durch c'],['c = {a·d|b}','über Kreuz, durch b'],['d = {b·c|a}','über Kreuz, durch a']]},
+ {id:'s1',n:'1. Strahlensatz',b:'{~SA~|~SA\'~} = {~SB~|~SB\'~}',f:[['~SB\'~ = {~SA\'~·~SB~|~SA~}','über Kreuz, durch SA'],['~SB~ = {~SA~·~SB\'~|~SA\'~}','über Kreuz, durch SA\''],['{~SA~|~AA\'~} = {~SB~|~BB\'~}','zweite Form: mit den Zwischenstücken']]},
+ {id:'s2',n:'2. Strahlensatz',b:'{~SA~|~SA\'~} = {~AB~|~A\'B\'~}',f:[['~A\'B\'~ = {~AB~·~SA\'~|~SA~}','über Kreuz, durch SA'],['~AB~ = {~A\'B\'~·~SA~|~SA\'~}','über Kreuz, durch SA\''],['~SA\'~ = {~SA~·~A\'B\'~|~AB~}','über Kreuz, durch AB']]},
+ {id:'aehn',n:'Ähnlichkeit: Längen',b:'k = {a\'|a} = {b\'|b} = {c\'|c}',f:[['a\' = k·a','mal a'],['a = {a\'|k}','durch k']]},
+ {id:'aehnA',n:'Ähnlichkeit: Flächen',b:'{A\'|A} = k^2',f:[['A\' = k^2·A','mal A'],['A = {A\'|k^2}','durch k²'],['k = √[{A\'|A}]','Wurzel ziehen']]}
+];
+const umf=id=>{const F=FORMS.find(x=>x.id===id);return `<details><summary>Umformen: ${F.n}</summary><ul class="forms">${F.f.map(x=>`<li>${m(x[0])}<span class="how">${x[1]}</span></li>`).join('')}</ul></details>`};
+
+/* ---------- Figuren ---------- */
+const PARTS=[
+ ['mittelpunkt','Mittelpunkt M','Jeder Punkt der Kreislinie hat von M denselben Abstand r.'],
+ ['radius','Radius r','Strecke vom Mittelpunkt zur Kreislinie. Halber Durchmesser.'],
+ ['durchmesser','Durchmesser d','Strecke durch M von Kreislinie zu Kreislinie. Längste Sehne, d = 2·r.'],
+ ['umfang','Umfang U','Länge der ganzen Kreislinie.'],
+ ['sehne','Sehne s','Strecke zwischen zwei Punkten der Kreislinie. Sie endet am Kreis.'],
+ ['sekante','Sekante','Gerade, die den Kreis in zwei Punkten schneidet. Sie läuft über den Kreis hinaus.'],
+ ['tangente','Tangente','Gerade, die den Kreis in genau einem Punkt berührt. Sie steht senkrecht auf dem Radius zum Berührungspunkt.'],
+ ['beruehr','Berührungspunkt B','Der einzige gemeinsame Punkt von Tangente und Kreis.'],
+ ['passante','Passante','Gerade, die am Kreis vorbeigeht und ihn nicht trifft.'],
+ ['winkel','Zentriwinkel α','Winkel zwischen zwei Radien mit Scheitel im Mittelpunkt.'],
+ ['bogen','Kreisbogen b','Das Stück der Kreislinie, das zum Zentriwinkel α gehört.'],
+ ['sektor','Kreissektor','Das «Kuchenstück»: begrenzt durch zwei Radien und den Bogen.'],
+ ['segment','Kreissegment','Fläche zwischen einer Sehne und ihrem Bogen. Sektor minus Dreieck.']
+];
+function figKreis(){
+  const cx=160,cy=160,r=100,M=[cx,cy],P=d=>pt(cx,cy,r,d),g=(k,h)=>`<g class="pt" data-p="${k}">${h}</g>`;
+  const s=(a,b,x)=>`<line class="s${x||''}" x1="${f(a[0])}" y1="${f(a[1])}" x2="${f(b[0])}" y2="${f(b[1])}"/>`;
+  const p270=P(270),p330=P(330),p20=P(20),p75=P(75),p105=P(105),p150=P(150),B=P(215);
+  const ex=(a,b,e)=>{const dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy);return[[a[0]-dx/l*e,a[1]-dy/l*e],[b[0]+dx/l*e,b[1]+dy/l*e]]};
+  const sk=ex(p105,p150,30),tv=[0.574,0.819],t1=[B[0]+tv[0]*62,B[1]+tv[1]*62],t2=[B[0]-tv[0]*62,B[1]-tv[1]*62];
+  const w1=pt(cx,cy,26,270),w2=pt(cx,cy,26,330);
+  let h='';
+  h+=g('sektor',`<path class="a" d="M${cx} ${cy}L${f(p270[0])} ${f(p270[1])}A${r} ${r} 0 0 0 ${f(p330[0])} ${f(p330[1])}Z"/>`);
+  h+=g('segment',`<path class="a" d="M${f(p20[0])} ${f(p20[1])}A${r} ${r} 0 0 0 ${f(p75[0])} ${f(p75[1])}Z"/>`);
+  h+=g('umfang',`<circle class="s" cx="${cx}" cy="${cy}" r="${r}"/>`);
+  h+=g('durchmesser',s(P(170),P(350)));
+  h+=g('radius',s(M,p270)+s(M,p330));
+  h+=g('sehne',s(p20,p75));
+  h+=g('sekante',s(sk[0],sk[1]));
+  h+=g('tangente',s(t1,t2)+s(M,B,' da'));
+  h+=g('passante',s([250,36],[330,116]));
+  h+=g('bogen',`<path class="s" d="M${f(p270[0])} ${f(p270[1])}A${r} ${r} 0 0 0 ${f(p330[0])} ${f(p330[1])}"/>`);
+  h+=g('winkel',`<path class="s" d="M${f(w1[0])} ${f(w1[1])}A26 26 0 0 0 ${f(w2[0])} ${f(w2[1])}"/>`);
+  h+=g('beruehr',`<circle class="d" cx="${f(B[0])}" cy="${f(B[1])}" r="3.5"/>`);
+  h+=g('mittelpunkt',`<circle class="d" cx="${cx}" cy="${cy}" r="3.5"/>`);
+  h+=T([cx+8,cy-9],'M','start')+T([148,218],'r','end')+T([98,142],'d')+T([208,108],'s')+T(pt(cx,cy,116,300),'b')+T(pt(cx,cy,42,298),'α')+T(pt(cx,cy,118,216),'B');
+  return svg('0 20 340 262',h,'Kreis mit allen Bezeichnungen');
+}
+function figKreisRD(){
+  const M=[150,95];
+  return svg('0 10 300 170',`<circle class="ln" cx="150" cy="95" r="72"/>`+L([78,95],[222,95],'hy')+L([78,95],[222,95],'ln')+L(M,pt(150,95,72,60),'hp')+L(M,pt(150,95,72,60),'ln')+DOT(M)+T([112,113],'d')+T([178,62],'r')+T([150,112],'M'),'Kreis mit Radius und Durchmesser');
+}
+function figSektor(al,rcm){
+  const cx=150,cy=118,R=40+rcm*3,M=[cx,cy],p0=pt(cx,cy,R,0),p1=pt(cx,cy,R,al),la=al>180?1:0,w=pt(cx,cy,20,al);
+  let h=`<circle class="th da" cx="${cx}" cy="${cy}" r="${R}"/>`;
+  h+=`<path class="fy" d="M${cx} ${cy}L${f(p0[0])} ${f(p0[1])}A${R} ${R} 0 ${la} 0 ${f(p1[0])} ${f(p1[1])}Z"/>`;
+  h+=`<path class="hp" d="M${f(p0[0])} ${f(p0[1])}A${R} ${R} 0 ${la} 0 ${f(p1[0])} ${f(p1[1])}"/>`;
+  h+=L(M,p0,'ln')+L(M,p1,'ln')+`<path class="ln" d="M${cx+20} ${cy}A20 20 0 ${la} 0 ${f(w[0])} ${f(w[1])}"/>`+DOT(M);
+  h+=T(pt(cx,cy,R+14,al/2),'b')+T(pt(cx,cy,34,al/2),'α')+T([cx+R/2,cy+17],'r');
+  return svg('0 0 300 236',h,'Kreissektor');
+}
+function figSegment(){
+  const cx=150,cy=130,R=90,M=[cx,cy],a=pt(cx,cy,R,45),b=pt(cx,cy,R,135);
+  let h=`<circle class="th da" cx="${cx}" cy="${cy}" r="${R}"/>`;
+  h+=`<path class="fy" d="M${cx} ${cy}L${f(a[0])} ${f(a[1])}L${f(b[0])} ${f(b[1])}Z"/>`;
+  h+=`<path class="fp" d="M${f(a[0])} ${f(a[1])}A${R} ${R} 0 0 0 ${f(b[0])} ${f(b[1])}Z"/>`;
+  h+=L(M,a,'ln')+L(M,b,'ln')+L(a,b,'ln')+`<path class="ln" d="M${f(a[0])} ${f(a[1])}A${R} ${R} 0 0 0 ${f(b[0])} ${f(b[1])}"/>`+DOT(M);
+  h+=T([150,58],'Segment')+T([150,100],'Dreieck')+T([196,108],'r')+T([104,108],'r')+T([150,148],'α');
+  return svg('0 28 300 200',h,'Kreissegment als Sektor minus Dreieck');
+}
+function figRing(){
+  const cx=150,cy=120,M=[cx,cy];
+  let h=`<path class="fy" fill-rule="evenodd" d="M${cx-95} ${cy}a95 95 0 1 0 190 0a95 95 0 1 0 -190 0ZM${cx-55} ${cy}a55 55 0 1 0 110 0a55 55 0 1 0 -110 0Z"/>`;
+  h+=`<circle class="ln" cx="${cx}" cy="${cy}" r="95"/><circle class="ln" cx="${cx}" cy="${cy}" r="55"/><circle class="th da" cx="${cx}" cy="${cy}" r="75"/>`;
+  h+=L(M,pt(cx,cy,95,190),'ln')+L(M,pt(cx,cy,55,120),'ln')+L(M,pt(cx,cy,75,330),'th da')+L(pt(cx,cy,55,45),pt(cx,cy,95,45),'hp')+DOT(M);
+  h+=T([92,124],'R')+T([146,92],'r')+T([190,132],'r<tspan dy="4" font-size="11">m</tspan>')+T(pt(cx,cy,110,45),'b');
+  return svg('0 15 300 210',h,'Kreisring mit Radien und Ringbreite');
+}
+function figSchwer(){
+  const A=[40,200],B=[260,200],C=[170,40],Mc=[150,200],Ma=[215,120],Mb=[105,120],S=[156.7,146.7];
+  let h=L(C,S,'hy')+L(S,Mc,'hp')+L(A,B,'ln')+L(B,C,'ln')+L(C,A,'ln')+L(A,Ma,'ln')+L(B,Mb,'ln')+L(C,Mc,'ln');
+  h+=[A,B,C,Mc,Ma,Mb,S].map(p=>DOT(p)).join('');
+  h+=T([28,206],'A')+T([272,206],'B')+T([170,32],'C')+T([150,218],'M<tspan dy="4" font-size="11">c</tspan>')+T([232,118],'M<tspan dy="4" font-size="11">a</tspan>')+T([88,118],'M<tspan dy="4" font-size="11">b</tspan>')+T([170,160],'S');
+  return svg('0 15 300 215',h,'Dreieck mit Seitenhalbierenden und Schwerpunkt');
+}
+const SG=(()=>{const a2=-10,a1=Math.acos(.71875)/D2R-10,u=a=>[Math.cos(a*D2R),-Math.sin(a*D2R)];
+  return{u1:u(a1),u2:u(a2),n1:[-Math.sin(a1*D2R),-Math.cos(a1*D2R)],nb:[Math.sin(a2*D2R),Math.cos(a2*D2R)]}})();
+function figStrahl(mode,sa2){
+  const S=[28,178],sc=11,at=(u,l)=>[S[0]+u[0]*l*sc,S[1]+u[1]*l*sc],off=(p,n,d)=>[p[0]+n[0]*d,p[1]+n[1]*d];
+  const A=at(SG.u1,8),B=at(SG.u2,10),A2=at(SG.u1,sa2),B2=at(SG.u2,sa2*1.25);
+  const ex=(a,b,e)=>{const dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy);return[[a[0]-dx/l*e,a[1]-dy/l*e],[b[0]+dx/l*e,b[1]+dy/l*e]]};
+  let h=L(off(S,SG.n1,7),off(A2,SG.n1,7),'hp')+L(S,A,'hy');
+  h+=mode===1?L(off(S,SG.nb,7),off(B2,SG.nb,7),'hp')+L(S,B,'hy'):L(A2,B2,'hp')+L(A,B,'hy');
+  const e1=ex(A,B,12),e2=ex(A2,B2,12);
+  h+=L(S,at(SG.u1,24),'ln')+L(S,at(SG.u2,27.5),'ln')+L(e1[0],e1[1],'ln')+L(e2[0],e2[1],'ln');
+  h+=[S,A,B,A2,B2].map(p=>DOT(p)).join('');
+  h+=T([S[0]-13,S[1]+5],'S')+T([A[0]+6,A[1]-22],'A','start')+T([A2[0]+6,A2[1]-22],"A'",'start')+T([B[0]-12,B[1]+26],'B','end')+T([B2[0]-12,B2[1]+26],"B'",'end');
+  return svg('0 10 340 242',h,'Strahlensatzfigur');
+}
+function figX(){
+  const S=[170,110],at=(u,l)=>[S[0]+u[0]*l,S[1]+u[1]*l],A=at(SG.u1,64),B=at(SG.u2,80),A2=at(SG.u1,-40),B2=at(SG.u2,-50);
+  let h=L(S,A,'hy')+L(S,B,'hy')+L(S,A2,'hp')+L(S,B2,'hp');
+  h+=L(at(SG.u1,-62),at(SG.u1,88),'ln')+L(at(SG.u2,-76),at(SG.u2,104),'ln')+L(A,B,'ln')+L(A2,B2,'ln')+[S,A,B,A2,B2].map(p=>DOT(p)).join('');
+  h+=T([S[0]+2,S[1]-12],'S')+T([A[0]+10,A[1]-6],'A','start')+T([B[0]+4,B[1]+20],'B')+T([A2[0]-4,A2[1]+20],"A'")+T([B2[0]-4,B2[1]-10],"B'");
+  return svg('78 40 210 125',h,'Strahlensatzfigur mit S zwischen den Parallelen');
+}
+function figTangente(){
+  const P=[20,170],M1=[65,170],M2=[155,170],T1=[45,147.6],T2=[95,102.9];
+  let h=`<circle class="ln" cx="65" cy="170" r="30"/><circle class="ln" cx="155" cy="170" r="90"/>`;
+  h+=L([20,182],[155,182],'hp')+L(P,M1,'hy')+L(M1,T1,'hy')+L(M2,T2,'hp');
+  h+=L(P,[252,170],'ln')+L(P,[131.8,70],'ln')+L(M1,T1,'ln')+L(M2,T2,'ln')+DOT(M1)+DOT(M2)+DOT(P);
+  h+=T([27,164],'x')+T([62,153],'r')+T([138,132],'3r')+T([12,188],'S');
+  return svg('0 62 270 208',h,'Zwei Kreise mit gemeinsamer Tangente');
+}
+function figStreck(k){
+  const Z=[25,150],P=[[85,150],[115,190],[100,130]],Q=P.map(p=>[Z[0]+(p[0]-Z[0])*k,Z[1]+(p[1]-Z[1])*k]);
+  const poly=(a,c)=>`<polygon class="${c}" points="${a.map(p=>f(p[0])+','+f(p[1])).join(' ')}"/>`;
+  let h=P.map(p=>L(Z,[Z[0]+(p[0]-Z[0])*2.9,Z[1]+(p[1]-Z[1])*2.9],'th')).join('');
+  h+=poly(Q,'fp')+poly(P,'fy')+`<polygon class="ln" points="${Q.map(p=>f(p[0])+','+f(p[1])).join(' ')}"/><polygon class="ln" points="${P.map(p=>f(p[0])+','+f(p[1])).join(' ')}"/>`;
+  h+=DOT(Z)+T([Z[0]-4,Z[1]-10],'Z')+T([Q[0][0]-12,Q[0][1]+16],"A'")+T([Q[1][0]+12,Q[1][1]+12],"B'")+T([Q[2][0]+4,Q[2][1]-9],"C'");
+  return svg('0 40 300 240',h,'Zentrische Streckung eines Dreiecks');
+}
+
+/* ---------- Kapitel ---------- */
+const CHAPS=[
+{id:'begriffe',t:'Kreis: Bezeichnungen',h:()=>`
+ <p>Tippe einen Begriff an. Der Teil wird in der Figur markiert und darunter erklärt.</p>
+ <figure id="kf">${figKreis()}</figure>
+ <div class="def" id="kdef"></div>
+ <div class="chips wrapc" id="kchips">${PARTS.map(p=>`<button class="chip" data-k="${p[0]}">${p[1]}</button>`).join('')}</div>
+ <div class="row"><button class="btn" id="kquiz">Teste mich: Welcher Teil ist markiert?</button></div>
+ <div class="hook"><b>Merkhilfe für die Geraden:</b> Die Se<b>k</b>ante <b>sch</b>neidet (zwei Punkte), die <b>T</b>angente <b>t</b>ippt den Kreis nur an (ein Punkt), die <b>Pass</b>ante <b>pass</b>iert ihn (kein Punkt). Die Sehne ist das Stück der Sekante im Kreis.</div>`},
+{id:'kreis',t:'Umfang und Fläche',h:()=>`
+ <figure>${figKreisRD()}<figcaption><mark class="y">Durchmesser d</mark> geht durch M, <mark class="p">Radius r</mark> ist die Hälfte davon.</figcaption></figure>
+ ${mb('U = 2·π·r = π·d')}${mb('A = π·r^2')}
+ <div class="hook"><b>Nicht verwechseln:</b> Der Umfang ist eine Länge, darum steht r ohne Quadrat (Einheit cm). Die Fläche hat r im Quadrat (Einheit cm²).</div>
+ <p>π ist das Verhältnis von Umfang zu Durchmesser, bei jedem Kreis gleich. π ist irrational, als Näherung gilt ${m('π ≈ 3.14')} oder ${m('π ≈ {22|7}')}. Rechne mit der π-Taste und runde erst am Schluss.</p>
+ ${umf('umfang')}${umf('flaeche')}
+ <h3>Beispiel vorwärts</h3>
+ <ul class="steps"><li>Gegeben ${m('r = 5 #cm')}</li><li>${m('U = 2·π·5 ≈ 31.42 #cm')}</li><li>${m('A = π·5^2 = 25·π ≈ 78.54 #cm^2')}</li></ul>
+ <h3>Beispiel rückwärts</h3>
+ <ul class="steps"><li>Gegeben ${m('U = 50 #cm')}, gesucht die Fläche</li><li>${m('r = {U|2·π} = {50|2·π} ≈ 7.96 #cm')}</li><li>${m('A = π·7.96^2 ≈ 198.94 #cm^2')}</li></ul>`},
+{id:'sektor',t:'Kreisbogen und Kreissektor',h:()=>`
+ <p>Ein Sektor ist ein Bruchteil des ganzen Kreises. Der Bruchteil ist immer ${m('{α|360°}')}. Damit musst du dir nur eine Idee merken:</p>
+ <div class="hook">Bogen = Anteil mal <b>Umfang</b>. Sektorfläche = Anteil mal <b>Kreisfläche</b>.</div>
+ ${mb('b = {α|360°}·2·π·r = {2·π·r·α|360°}')}${mb('A_S = {α|360°}·π·r^2 = {π·r^2·α|360°}')}
+ <figure id="sf"></figure>
+ <div class="ctl"><label for="s-al">α</label><input type="range" id="s-al" min="10" max="350" step="5" value="60"><output id="s-alo"></output></div>
+ <div class="ctl"><label for="s-r">r</label><input type="range" id="s-r" min="2" max="20" step="1" value="6"><output id="s-ro"></output></div>
+ <div class="live" id="s-live"></div>
+ <figcaption>Der <mark class="p">Bogen b</mark> wächst gleichmässig mit α. Die <mark class="y">Sektorfläche</mark> wächst mit α und mit r im Quadrat: doppelter Radius gibt vierfache Fläche.</figcaption>
+ <h3>Dritte Formel: ohne Winkel</h3>
+ ${mb('A_S = {1|2}·b·r = {b·r|2}')}
+ <p>Sie sieht aus wie die Dreiecksfläche: Grundlinie b, Höhe r. Sie entsteht, wenn du in der Sektorformel den Bogen einsetzt: ${m('{π·r^2·α|360°} = {1|2}·{2·π·r·α|360°}·r = {1|2}·b·r')}.</p>
+ ${umf('bogen')}${umf('sektor')}${umf('sektor2')}
+ <h3>Beispiel</h3>
+ <ul class="steps"><li>Gegeben ${m('r = 6 #cm')}, ${m('α = 60°')}. Anteil ${m('{60°|360°} = {1|6}')}</li><li>${m('b = {2·π·6·60°|360°} = 2·π ≈ 6.28 #cm')}</li><li>${m('A_S = {π·6^2·60°|360°} = 6·π ≈ 18.85 #cm^2')}</li><li>Kontrolle: ${m('{6.28·6|2} ≈ 18.85 #cm^2')} ✓</li></ul>
+ <h3>Beispiel Umformung</h3>
+ <ul class="steps"><li>Gegeben ${m('A_S = 40 #cm^2')}, ${m('α = 72°')}, gesucht r</li><li>${m('A_S·360° = π·r^2·α')} (mal 360°)</li><li>${m('r^2 = {A_S·360°|π·α} = {40·360°|π·72°} ≈ 63.66')}</li><li>${m('r = √[63.66] ≈ 7.98 #cm')}</li></ul>`},
+{id:'segment',t:'Kreissegment',h:()=>`
+ <figure>${figSegment()}<figcaption>Schneidest du vom Sektor das <mark class="y">Dreieck</mark> aus den zwei Radien und der Sehne weg, bleibt das <mark class="p">Segment</mark> übrig.</figcaption></figure>
+ ${mb('A_Segment = A_Sektor − A_Dreieck')}
+ <p>Das Dreieck ist gleichschenklig mit zwei Seiten r. Bei ${m('α = 90°')} ist es rechtwinklig mit ${m('A_Dreieck = {r·r|2}')}. Bei ${m('α = 60°')} ist es gleichseitig.</p>
+ ${umf('segment')}
+ <h3>Beispiel</h3>
+ <ul class="steps"><li>Gegeben ${m('r = 10 #cm')}, ${m('α = 90°')}</li><li>${m('A_Sektor = {π·10^2·90°|360°} = 25·π ≈ 78.54 #cm^2')}</li><li>${m('A_Dreieck = {10·10|2} = 50 #cm^2')}</li><li>${m('A_Segment = 78.54 − 50 = 28.54 #cm^2')}</li></ul>`},
+{id:'ring',t:'Kreisring',h:()=>`
+ <figure>${figRing()}<figcaption>Zwei Kreise mit gleichem Mittelpunkt. Der <mark class="y">Ring</mark> ist grosser Kreis minus kleiner Kreis. Die <mark class="p">Ringbreite b</mark> ist der Abstand der Kreislinien, der gestrichelte Kreis hat den mittleren Radius.</figcaption></figure>
+ ${mb('A = π·R^2 − π·r^2 = π·(R^2 − r^2)')}
+ ${mb('b = R − r      r_m = {R + r|2}')}
+ ${mb('A = 2·π·r_m·b')}
+ <div class="hook"><b>Merkhilfe:</b> ${m('2·π·r_m')} ist der Umfang des mittleren Kreises. Ringfläche = mittlerer Umfang mal Breite, als würdest du den Ring zu einem Rechteck aufbiegen.</div>
+ <div class="warn"><b>Achtung:</b> ${m('R^2 − r^2')} ist nicht ${m('(R − r)^2')}. Richtig ist die dritte binomische Formel: ${m('R^2 − r^2 = (R − r)·(R + r)')}. Daraus folgt direkt die Formel mit ${m('b')} und ${m('r_m')}, weil ${m('R − r = b')} und ${m('R + r = 2·r_m')}.</div>
+ ${umf('ring')}${umf('ring2')}
+ <h3>Beispiel auf zwei Wegen</h3>
+ <ul class="steps"><li>Gegeben ${m('R = 8 #cm')}, ${m('r = 5 #cm')}</li><li>Weg 1: ${m('A = π·(8^2 − 5^2) = 39·π ≈ 122.52 #cm^2')}</li><li>Weg 2: ${m('b = 3')}, ${m('r_m = 6.5')}, ${m('A = 2·π·6.5·3 = 39·π ≈ 122.52 #cm^2')} ✓</li></ul>
+ <h3>Beispiel aus dem Buch: In- und Umkreis eines Quadrats</h3>
+ <ul class="steps"><li>Quadrat mit Seite a. Inkreisradius ${m('r = {a|2}')} (halbe Seite)</li><li>Umkreisradius = halbe Diagonale: ${m('R = √[({a|2})^2 + ({a|2})^2] = {a|√[2]}')}</li><li>${m('A = π·(R^2 − r^2) = π·({a^2|2} − {a^2|4}) = {a^2|4}·π')}</li></ul>`},
+{id:'prop',t:'Proportionen',h:()=>`
+ <p>Ein <b>Verhältnis</b> ist der Quotient zweier Zahlen: ${m('q = a : b = {a|b}')}. Eine <b>Proportion</b> ist die Gleichheit zweier Verhältnisse:</p>
+ ${mb('a : b = c : d    bzw.    {a|b} = {c|d}')}
+ <p><mark class="y">a und d</mark> stehen aussen und heissen Aussenglieder. <mark class="p">b und c</mark> stehen innen und heissen Innenglieder. Multiplizierst du beide Seiten mit ${m('b·d')}, entsteht die <b>Produktgleichung</b>:</p>
+ ${mb('a·d = b·c')}
+ <div class="hook"><b>Kreuzrechnen:</b> Produkt der Aussenglieder = Produkt der Innenglieder. Im Bruchbild multiplizierst du über Kreuz. Jede Strahlensatz-Aufgabe endet mit diesem Schritt.</div>
+ ${umf('prop')}
+ <h3>Beispiel</h3>
+ <ul class="steps"><li>${m('3 : 4 = x : 10')}</li><li>Über Kreuz: ${m('3·10 = 4·x')}</li><li>${m('x = {30|4} = 7.5')}</li></ul>
+ <h3>Beispiel aus dem Skript: Seitenhalbierende</h3>
+ <figure>${figSchwer()}<figcaption>Die Seitenhalbierenden schneiden sich im Schwerpunkt S. Das <mark class="y">Stück zur Ecke</mark> ist doppelt so lang wie das <mark class="p">Stück zur Seitenmitte</mark>.</figcaption></figure>
+ ${mb('~CS~ : ~SM_c~ = 2 : 1')}
+ <ul class="steps"><li>Die ganze Seitenhalbierende hat 2 + 1 = 3 Teile</li><li>Ist ${m('s_c = 12 #cm')}, dann ${m('~CS~ = {2|3}·12 = 8 #cm')} und ${m('~SM_c~ = {1|3}·12 = 4 #cm')}</li></ul>`},
+{id:'s1',t:'Erster Strahlensatz',h:()=>`
+ <p>Grundfigur: zwei Geraden schneiden sich in S und werden von <b>zwei Parallelen</b> geschnitten. Der erste Strahlensatz vergleicht nur Stücke <b>auf den beiden Geraden durch S</b>.</p>
+ ${mb('{~SA~|~SA\'~} = {~SB~|~SB\'~}    und    {~SA~|~AA\'~} = {~SB~|~BB\'~}')}
+ <figure id="f1"></figure>
+ <div class="ctl"><label for="f1-s">${m("~SA'~")}</label><input type="range" id="f1-s" min="10" max="20" step="0.5" value="14"><output id="f1-o"></output></div>
+ <div class="live" id="f1-live"></div>
+ <figcaption>Fest sind SA = 8 und SB = 10. Schiebst du die zweite Parallele, ändern sich <mark class="p">SA' und SB'</mark> im gleichen Takt. Die beiden Verhältnisse bleiben immer gleich gross.</figcaption>
+ <div class="hook"><b>In Worten:</b> Zwei Abschnitte auf der einen Geraden verhalten sich wie die entsprechenden Abschnitte auf der anderen Geraden. Kurz zu kurz wie lang zu lang.</div>
+ <figure>${figX()}<figcaption>Der Satz gilt auch, wenn S zwischen den Parallelen liegt (X-Figur). Gemessen wird wieder ab S.</figcaption></figure>
+ ${umf('s1')}
+ <h3>Beispiel a aus dem Skript</h3>
+ <ul class="steps"><li>Gegeben ${m("~SA~ = 8")}, ${m("~SB~ = 10")}, ${m("~SA'~ = 14")}, gesucht ${m("~SB'~")}</li><li>${m("{8|14} = {10|~SB'~}")}</li><li>Über Kreuz: ${m("8·~SB'~ = 14·10")}</li><li>${m("~SB'~ = {140|8} = 17.5")}</li></ul>
+ <h3>Beispiel b aus dem Skript</h3>
+ <ul class="steps"><li>Gegeben ${m("~AA'~ = 5")}, ${m("~SA'~ = 12")}, ${m("~BB'~ = 6")}, gesucht ${m("~SB~")}</li><li>Zuerst das fehlende Stück: ${m("~SA~ = ~SA'~ − ~AA'~ = 12 − 5 = 7")}</li><li>Zweite Form: ${m("{7|5} = {~SB~|6}")}</li><li>${m("~SB~ = {7·6|5} = 8.4")}</li></ul>`},
+{id:'s2',t:'Zweiter Strahlensatz',h:()=>`
+ <p>Der zweite Strahlensatz bringt die <b>Stücke auf den Parallelen</b> ins Spiel: AB und A'B'.</p>
+ ${mb('{~SA~|~SA\'~} = {~AB~|~A\'B\'~}    und    {~SB~|~SB\'~} = {~AB~|~A\'B\'~}')}
+ <figure id="f2"></figure>
+ <div class="ctl"><label for="f2-s">${m("~SA'~")}</label><input type="range" id="f2-s" min="10" max="20" step="0.5" value="14"><output id="f2-o"></output></div>
+ <div class="live" id="f2-live"></div>
+ <figcaption><mark class="y">SA gehört zu AB</mark>, <mark class="p">SA' gehört zu A'B'</mark>. Es sind die Seiten der zwei ähnlichen Dreiecke SAB und SA'B'.</figcaption>
+ <div class="warn"><b>Häufigster Fehler:</b> Beim zweiten Strahlensatz immer <b>ab S</b> messen. Das Zwischenstück AA' darf hier nicht vorkommen. Ist nur AA' gegeben, rechne zuerst ${m("~SA'~ = ~SA~ + ~AA'~")}.</div>
+ <div class="hook"><b>Welcher Satz?</b> Kommt in der Aufgabe ein Stück auf einer Parallelen vor, brauchst du den zweiten. Liegen alle Stücke auf den Geraden durch S, den ersten.</div>
+ ${umf('s2')}
+ <h3>Beispiel aus dem Skript: zwei Kreise</h3>
+ <figure>${figTangente()}<figcaption>Beide Radien stehen senkrecht auf der Tangente, also sind sie parallel. Damit ist es eine Strahlensatzfigur mit S links. <mark class="y">Kleines Dreieck</mark>: Strecke ab S ist x + r, Parallele ist r. <mark class="p">Grosses Dreieck</mark>: Strecke ab S ist x + 4r, Parallele ist 3r.</figcaption></figure>
+ <ul class="steps"><li>${m('{x + r|x + 4·r} = {r|3·r} = {1|3}')}</li><li>Über Kreuz: ${m('3·(x + r) = x + 4·r')}</li><li>${m('3·x + 3·r = x + 4·r')}</li><li>${m('2·x = r')}, also ${m('x = {r|2}')}</li></ul>
+ <p>Woher kommt 4r? Von S bis zum kleinen Mittelpunkt sind es x + r. Der kleine Mittelpunkt liegt auf dem grossen Kreis, also sind es von dort bis zum grossen Mittelpunkt nochmals 3r. Zusammen x + 4r.</p>`},
+{id:'aehn',t:'Zentrische Streckung und Ähnlichkeit',h:()=>`
+ <p>Eine zentrische Streckung ist festgelegt durch das <b>Streckungszentrum Z</b> und den <b>Streckungsfaktor k</b>. Jeder Punkt wandert auf seinem Strahl von Z aus auf den k-fachen Abstand: ${m("~ZA'~ = k·~ZA~")}.</p>
+ <figure id="fk"></figure>
+ <div class="ctl"><label for="fk-s">k</label><input type="range" id="fk-s" min="0.5" max="2.5" step="0.1" value="2"><output id="fk-o"></output></div>
+ <div class="live" id="fk-live"></div>
+ <figcaption><mark class="y">Original</mark> und <mark class="p">Bild</mark>. Alle Längen werden mit k multipliziert, die Winkel bleiben gleich, die Form bleibt erhalten. Bei k kleiner als 1 wird verkleinert.</figcaption>
+ <h3>Ähnliche Figuren</h3>
+ <p>Figuren heissen ähnlich, wenn sie durch eine zentrische Streckung in zueinander kongruente Figuren übergeführt werden können. Dann gilt:</p>
+ <ul><li>Entsprechende Winkel sind gleich gross.</li><li>Entsprechende Seitenverhältnisse sind gleich: ${m("{a'|a} = {b'|b} = {c'|c} = k")}. Das gilt auch für Höhen.</li><li>Für die Flächen: ${m("{A'|A} = k^2")}</li></ul>
+ <div class="hook"><b>Warum k²?</b> Eine Fläche ist Länge mal Länge. Beide Längen werden mit k gestreckt, also ${m("k·k = k^2")}. Doppelte Seiten geben vierfache Fläche, dreifache Seiten neunfache Fläche.</div>
+ ${umf('aehn')}${umf('aehnA')}
+ <h3>Beispiel aus dem Skript</h3>
+ <ul class="steps"><li>Kleines Dreieck ${m('c = 5')}, ${m('h_c = 2')}. Grosses Dreieck ${m("c' = 15")}, ${m("h_c' = 6")}</li><li>${m("k = {c'|c} = {15|5} = 3")}</li><li>${m("A = {5·2|2} = 5")} und ${m("A' = {15·6|2} = 45")}</li><li>${m("{A'|A} = {45|5} = 9 = k^2")} ✓</li></ul>
+ <h3>Ähnlichkeitssätze für Dreiecke</h3>
+ <ul><li>Stimmen zwei Dreiecke im <b>Verhältnis der entsprechenden Seiten</b> überein, sind sie ähnlich.</li><li>Stimmen zwei Dreiecke in <b>zwei Winkeln</b> überein, sind sie ähnlich. Der dritte Winkel ist dann automatisch gleich, weil die Summe 180° ist.</li></ul>
+ <p>Die Strahlensatzfigur ist genau das: Die Dreiecke SAB und SA'B' haben den Winkel bei S gemeinsam und wegen der Parallelen gleiche Winkel bei A und A'.</p>`}
+];
+
+/* ---------- Karteikarten ---------- */
+const CARDS=[
+ ['Umfang des Kreises',mb('U = 2·π·r = π·d')+'Länge, darum r ohne Quadrat.'],
+ ['Fläche des Kreises',mb('A = π·r^2')],
+ ['Länge des Kreisbogens b',mb('b = {2·π·r·α|360°}')+'Anteil α/360° vom Umfang.'],
+ ['Fläche des Kreissektors mit Winkel α',mb('A_S = {π·r^2·α|360°}')+'Anteil α/360° von der Kreisfläche.'],
+ ['Fläche des Kreissektors mit Bogen b',mb('A_S = {b·r|2}')+'Wie ein Dreieck mit Grundlinie b und Höhe r.'],
+ ['Fläche des Kreissegments',mb('A_Segment = A_Sektor − A_Dreieck')],
+ ['Kreisringfläche mit R und r',mb('A = π·(R^2 − r^2)')+'Grosser Kreis minus kleiner Kreis.'],
+ ['Kreisringfläche mit mittlerem Radius und Breite',mb('A = 2·π·r_m·b')+'Mittlerer Umfang mal Breite.'],
+ ['Ringbreite b und mittlerer Radius',mb('b = R − r      r_m = {R + r|2}')],
+ ['R und r aus mittlerem Radius und Breite',mb('R = r_m + {b|2}      r = r_m − {b|2}')],
+ ['U gegeben. r = ?',mb('r = {U|2·π}')],
+ ['A gegeben. r = ?',mb('r = √[{A|π}]')],
+ ['b und r gegeben. α = ?',mb('α = {b·360°|2·π·r}')],
+ ['Sektorfläche und α gegeben. r = ?',mb('r = √[{A_S·360°|π·α}]')],
+ ['Kreisring: A und r gegeben. R = ?',mb('R = √[{A|π} + r^2]')],
+ ['Was ist R² − r² ausgeschrieben?',mb('R^2 − r^2 = (R − r)·(R + r)')+'Nicht (R − r)².'],
+ ['Unterschied Sehne, Sekante, Tangente, Passante','Sehne: Strecke zwischen zwei Kreispunkten.<br>Sekante: Gerade durch zwei Kreispunkte.<br>Tangente: berührt in einem Punkt.<br>Passante: trifft den Kreis nicht.'],
+ ['Wie steht die Tangente zum Radius im Berührungspunkt?','Senkrecht (90°).'],
+ ['Was ist der Zentriwinkel?','Der Winkel zwischen zwei Radien mit Scheitel im Mittelpunkt M.'],
+ ['Was ist π und wie gross ungefähr?','Verhältnis Umfang zu Durchmesser. Irrational.'+mb('π ≈ 3.14 ≈ {22|7}')],
+ ['In- und Umkreisradius eines Quadrats mit Seite a',mb('r = {a|2}      R = {a|√[2]}')+'R ist die halbe Diagonale.'],
+ ['Verhältnis und Proportion','Verhältnis: Quotient zweier Zahlen, a : b.<br>Proportion: Gleichheit zweier Verhältnisse.'+mb('a : b = c : d')],
+ ['Aussenglieder, Innenglieder, Produktgleichung','a und d aussen, b und c innen.'+mb('a·d = b·c')],
+ ['In welchem Verhältnis teilt der Schwerpunkt die Seitenhalbierenden?',mb('2 : 1')+'Das lange Stück liegt bei der Ecke.'],
+ ['Grundfigur der Strahlensätze','Zwei sich schneidende Geraden (Schnittpunkt S), geschnitten von zwei Parallelen.'],
+ ['Erster Strahlensatz',mb('{~SA~|~SA\'~} = {~SB~|~SB\'~}')+'Nur Stücke auf den Geraden durch S. Auch: SA : AA\' = SB : BB\'.'],
+ ['Zweiter Strahlensatz',mb('{~SA~|~SA\'~} = {~AB~|~A\'B\'~}')+'Stücke ab S zu den Stücken auf den Parallelen.'],
+ ['Häufigster Fehler beim zweiten Strahlensatz','Mit AA\' rechnen. Beim zweiten Satz immer ab S messen: SA und SA\'.'],
+ ['Wodurch ist eine zentrische Streckung festgelegt und was bewirkt sie?','Zentrum Z und Faktor k. Alle Längen mal k, Winkel bleiben gleich.'],
+ ['Eigenschaften ähnlicher Figuren','Gleiche Winkel, gleiche Seitenverhältnisse.'+mb('{a\'|a} = {b\'|b} = k      {A\'|A} = k^2')],
+ ['Flächen A und A\' bekannt. k = ?',mb('k = √[{A\'|A}]')],
+ ['Die zwei Ähnlichkeitssätze für Dreiecke','Ähnlich, wenn die Verhältnisse entsprechender Seiten übereinstimmen.<br>Ähnlich, wenn zwei Winkel übereinstimmen.']
+];
+
+/* ---------- Aufgaben ---------- */
+const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1)),pick=a=>a[ri(0,a.length-1)];
+const WINKEL=[30,45,60,72,90,120,135,150,210,240];
+const TOPICS=[['alle','Alle'],['kreis','Kreis'],['sektor','Bogen und Sektor'],['ring','Kreisring'],['strahl','Strahlensätze'],['aehn','Proportion und Ähnlichkeit']];
+const TASKS=[
+ ()=>{const r=ri(2,15);return{t:'kreis',q:`Ein Kreis hat den Radius ${m(`r = ${r} #cm`)}. Berechne den Umfang.`,a:2*PI*r,u:'cm',tip:m('U = 2·π·r'),s:[m(`U = 2·π·r = 2·π·${r}`)]}},
+ ()=>{const U=ri(20,90);return{t:'kreis',q:`Der Umfang eines Kreises beträgt ${m(`U = ${U} #cm`)}. Wie gross ist der Radius?`,a:U/(2*PI),u:'cm',tip:m('r = {U|2·π}'),s:[m('U = 2·π·r')+' nach r auflösen: durch 2π teilen',m(`r = {U|2·π} = {${U}|2·π}`)]}},
+ ()=>{const d=2*ri(2,12);return{t:'kreis',q:`Ein Kreis hat den Durchmesser ${m(`d = ${d} #cm`)}. Berechne die Fläche.`,a:PI*d*d/4,u:'cm²',tip:'Zuerst r, dann '+m('A = π·r^2'),s:[m(`r = {d|2} = ${d/2} #cm`),m(`A = π·r^2 = π·${d/2}^2`)]}},
+ ()=>{const A=ri(20,300);return{t:'kreis',q:`Die Fläche eines Kreises beträgt ${m(`A = ${A} #cm^2`)}. Wie gross ist der Radius?`,a:Math.sqrt(A/PI),u:'cm',tip:m('r = √[{A|π}]'),s:[m('A = π·r^2')+' durch π teilen: '+m('r^2 = {A|π}'),m(`r = √[{${A}|π}]`)]}},
+ ()=>{const A=ri(30,250),r=Math.sqrt(A/PI);return{t:'kreis',q:`Ein Kreis hat die Fläche ${m(`A = ${A} #cm^2`)}. Berechne seinen Umfang.`,a:2*PI*r,u:'cm',tip:'Zwei Schritte: aus A den Radius, dann den Umfang.',s:[m(`r = √[{A|π}] = √[{${A}|π}] ≈ ${n2(r)} #cm`),m(`U = 2·π·r ≈ 2·π·${n2(r)}`)]}},
+ ()=>{const r=ri(3,15),al=pick(WINKEL);return{t:'sektor',q:`Kreis mit ${m(`r = ${r} #cm`)}. Wie lang ist der Bogen zum Zentriwinkel ${m(`α = ${al}°`)}?`,a:2*PI*r*al/360,u:'cm',tip:m('b = {2·π·r·α|360°}'),s:[m(`b = {2·π·r·α|360°} = {2·π·${r}·${al}°|360°}`)]}},
+ ()=>{const r=ri(3,15),b=+n2(2*PI*r*pick(WINKEL)/360);return{t:'sektor',q:`Ein Kreisbogen ist ${m(`b = ${b} #cm`)} lang, der Radius ist ${m(`r = ${r} #cm`)}. Wie gross ist der Zentriwinkel?`,a:b*360/(2*PI*r),u:'°',tip:m('α = {b·360°|2·π·r}'),s:[m('b = {2·π·r·α|360°}')+' mal 360°: '+m('b·360° = 2·π·r·α'),m(`α = {b·360°|2·π·r} = {${b}·360°|2·π·${r}}`)]}},
+ ()=>{const r=ri(3,15),al=pick(WINKEL);return{t:'sektor',q:`Berechne die Fläche des Kreissektors mit ${m(`r = ${r} #cm`)} und ${m(`α = ${al}°`)}.`,a:PI*r*r*al/360,u:'cm²',tip:m('A_S = {π·r^2·α|360°}'),s:[m(`A_S = {π·r^2·α|360°} = {π·${r}^2·${al}°|360°}`)]}},
+ ()=>{const al=pick(WINKEL),A=+n2(PI*Math.pow(ri(3,14),2)*al/360);return{t:'sektor',q:`Ein Kreissektor hat die Fläche ${m(`A_S = ${A} #cm^2`)} und den Zentriwinkel ${m(`α = ${al}°`)}. Wie gross ist der Radius?`,a:Math.sqrt(A*360/(PI*al)),u:'cm',tip:m('r = √[{A_S·360°|π·α}]'),s:['Mal 360°: '+m('A_S·360° = π·r^2·α'),'Durch π·α: '+m(`r^2 = {${A}·360°|π·${al}°} ≈ ${n2(A*360/(PI*al))}`),'Wurzel ziehen']}},
+ ()=>{const b=ri(4,20),r=ri(3,12);return{t:'sektor',q:`Ein Kreissektor hat den Bogen ${m(`b = ${b} #cm`)} und den Radius ${m(`r = ${r} #cm`)}. Berechne seine Fläche.`,a:b*r/2,u:'cm²',tip:'Kein Winkel nötig: '+m('A_S = {b·r|2}'),s:[m(`A_S = {b·r|2} = {${b}·${r}|2}`)]}},
+ ()=>{const r=ri(4,12);return{t:'sektor',q:`Berechne die Fläche des Kreissegments mit ${m(`r = ${r} #cm`)} und Zentriwinkel ${m('α = 90°')}.`,a:PI*r*r/4-r*r/2,u:'cm²',tip:'Sektor minus rechtwinkliges Dreieck mit den Katheten r.',s:[m(`A_Sektor = {π·${r}^2·90°|360°} ≈ ${n2(PI*r*r/4)} #cm^2`),m(`A_Dreieck = {${r}·${r}|2} = ${r*r/2} #cm^2`),m(`A_Segment = ${n2(PI*r*r/4)} − ${r*r/2}`)]}},
+ ()=>{const R=ri(5,14),r=ri(2,R-1);return{t:'ring',q:`Kreisring mit ${m(`R = ${R} #cm`)} und ${m(`r = ${r} #cm`)}. Berechne die Fläche.`,a:PI*(R*R-r*r),u:'cm²',tip:m('A = π·(R^2 − r^2)'),s:[m(`A = π·(R^2 − r^2) = π·(${R*R} − ${r*r}) = ${R*R-r*r}·π`)]}},
+ ()=>{const rm=ri(4,12),b=ri(1,5);return{t:'ring',q:`Ein Kreisring hat den mittleren Radius ${m(`r_m = ${rm} #cm`)} und die Breite ${m(`b = ${b} #cm`)}. Berechne die Fläche.`,a:2*PI*rm*b,u:'cm²',tip:m('A = 2·π·r_m·b'),s:[m(`A = 2·π·r_m·b = 2·π·${rm}·${b}`)]}},
+ ()=>{const R=ri(5,14),r=ri(2,R-1),A=+n2(PI*(R*R-r*r));return{t:'ring',q:`Ein Kreisring hat die Fläche ${m(`A = ${A} #cm^2`)} und den Innenradius ${m(`r = ${r} #cm`)}. Wie gross ist der Aussenradius R?`,a:Math.sqrt(A/PI+r*r),u:'cm',tip:m('R = √[{A|π} + r^2]'),s:[m('A = π·(R^2 − r^2)')+' durch π: '+m('{A|π} = R^2 − r^2'),'Plus r²: '+m(`R^2 = {${A}|π} + ${r}^2 ≈ ${n2(A/PI+r*r)}`),'Wurzel ziehen']}},
+ ()=>{const a=2*ri(2,8);return{t:'ring',q:`In- und Umkreis eines Quadrats mit Seite ${m(`a = ${a} #cm`)} bilden einen Kreisring. Berechne seine Fläche.`,a:a*a*PI/4,u:'cm²',tip:m('r = {a|2}')+' und R ist die halbe Diagonale.',s:[m(`r = {a|2} = ${a/2} #cm`),m(`R^2 = ({a|2})^2 + ({a|2})^2 = ${a*a/2}`),m(`A = π·(R^2 − r^2) = π·(${a*a/2} − ${a*a/4}) = ${a*a/4}·π`)]}},
+ ()=>{const sa=ri(4,10),sb=ri(4,12),sa2=sa+ri(2,8);return{t:'strahl',q:`Strahlensatzfigur: ${m(`~SA~ = ${sa}`)}, ${m(`~SB~ = ${sb}`)}, ${m(`~SA'~ = ${sa2}`)}. Berechne ${m("~SB'~")}.`,a:sa2*sb/sa,u:'',tip:'Erster Strahlensatz: '+m("{~SA~|~SA'~} = {~SB~|~SB'~}"),s:[m(`{${sa}|${sa2}} = {${sb}|~SB'~}`),'Über Kreuz: '+m(`${sa}·~SB'~ = ${sa2}·${sb}`),m(`~SB'~ = {${sa2*sb}|${sa}}`)]}},
+ ()=>{const sa2=ri(8,16),aa=ri(2,sa2-3),bb=ri(3,9),sa=sa2-aa;return{t:'strahl',q:`Strahlensatzfigur: ${m(`~AA'~ = ${aa}`)}, ${m(`~SA'~ = ${sa2}`)}, ${m(`~BB'~ = ${bb}`)}. Berechne ${m('~SB~')}.`,a:sa*bb/aa,u:'',tip:'Zuerst SA ausrechnen, dann '+m("{~SA~|~AA'~} = {~SB~|~BB'~}"),s:[m(`~SA~ = ~SA'~ − ~AA'~ = ${sa2} − ${aa} = ${sa}`),m(`{${sa}|${aa}} = {~SB~|${bb}}`),m(`~SB~ = {${sa}·${bb}|${aa}}`)]}},
+ ()=>{const sa=ri(3,9),sa2=sa+ri(2,9),ab=ri(3,10);return{t:'strahl',q:`Strahlensatzfigur: ${m(`~SA~ = ${sa}`)}, ${m(`~SA'~ = ${sa2}`)}, ${m(`~AB~ = ${ab}`)}. Wie lang ist das Parallelenstück ${m("~A'B'~")}?`,a:ab*sa2/sa,u:'',tip:'Zweiter Strahlensatz: '+m("{~SA~|~SA'~} = {~AB~|~A'B'~}"),s:[m(`{${sa}|${sa2}} = {${ab}|~A'B'~}`),'Über Kreuz: '+m(`${sa}·~A'B'~ = ${sa2}·${ab}`),m(`~A'B'~ = {${sa2*ab}|${sa}}`)]}},
+ ()=>{const sa=ri(3,9),aa=ri(2,8),ab2=ri(6,18);return{t:'strahl',q:`Strahlensatzfigur: ${m(`~SA~ = ${sa}`)}, ${m(`~AA'~ = ${aa}`)}, ${m(`~A'B'~ = ${ab2}`)}. Berechne ${m('~AB~')}.`,a:ab2*sa/(sa+aa),u:'',tip:'Zweiter Strahlensatz, aber ab S messen: zuerst '+m("~SA'~ = ~SA~ + ~AA'~"),s:[m(`~SA'~ = ${sa} + ${aa} = ${sa+aa}`),m(`{${sa}|${sa+aa}} = {~AB~|${ab2}}`),m(`~AB~ = {${sa}·${ab2}|${sa+aa}}`)]}},
+ ()=>{const st=pick([1,1.5,2]),s1=pick([0.8,1.2,1.6,2,2.5]),s2=ri(6,20);return{t:'strahl',q:`Ein ${st} m langer Stab steht senkrecht und wirft einen ${s1} m langen Schatten. Zur gleichen Zeit ist der Schatten eines Baumes ${s2} m lang. Wie hoch ist der Baum?`,a:st*s2/s1,u:'m',tip:'Sonnenstrahlen sind parallel, Stab und Baum auch: zweiter Strahlensatz. Höhe zu Höhe wie Schatten zu Schatten.',s:[m(`{h|${st}} = {${s2}|${s1}}`),m(`h = {${st}·${s2}|${s1}}`)]}},
+ ()=>{const a=ri(2,9),b=ri(2,9),d=ri(3,15);return{t:'aehn',q:`Löse die Proportion ${m(`${a} : ${b} = x : ${d}`)} nach x auf.`,a:a*d/b,u:'',tip:'Produktgleichung: Aussenglieder mal Aussenglieder = Innenglieder mal Innenglieder.',s:[m(`${a}·${d} = ${b}·x`),m(`x = {${a*d}|${b}}`)]}},
+ ()=>{const s=3*ri(2,9);return{t:'aehn',q:`Die Seitenhalbierende ${m('s_c')} eines Dreiecks ist ${s} cm lang. Wie lang ist die Strecke von der Ecke C zum Schwerpunkt S?`,a:s*2/3,u:'cm',tip:'Der Schwerpunkt teilt 2 : 1, das lange Stück liegt bei der Ecke.',s:['2 + 1 = 3 Teile',m(`~CS~ = {2|3}·${s}`)]}},
+ ()=>{const a=ri(2,6),k=pick([1.5,2,2.5,3,4]),A=ri(4,20);return{t:'aehn',q:`Zwei ähnliche Dreiecke: Seite ${m(`a = ${a} #cm`)} entspricht ${m(`a' = ${n2(a*k)} #cm`)}. Das kleine Dreieck hat die Fläche ${m(`A = ${A} #cm^2`)}. Wie gross ist die Fläche des grossen?`,a:A*k*k,u:'cm²',tip:'Zuerst k, dann '+m("A' = k^2·A"),s:[m(`k = {a'|a} = {${n2(a*k)}|${a}} = ${k}`),m(`A' = k^2·A = ${k}^2·${A} = ${n2(k*k)}·${A}`)]}},
+ ()=>{const A=ri(3,10),k=pick([2,3,4]),a=ri(2,7);return{t:'aehn',q:`Zwei ähnliche Figuren haben die Flächen ${m(`A = ${A} #cm^2`)} und ${m(`A' = ${A*k*k} #cm^2`)}. Eine Seite der kleinen Figur misst ${m(`a = ${a} #cm`)}. Wie lang ist die entsprechende Seite der grossen?`,a:a*k,u:'cm',tip:m("k = √[{A'|A}]")+', dann '+m("a' = k·a"),s:[m(`k^2 = {A'|A} = {${A*k*k}|${A}} = ${k*k}`),m(`k = √[${k*k}] = ${k}`),m(`a' = k·a = ${k}·${a}`)]}},
+ ()=>{const M=pick([50,100,200]),w=ri(2,8),h=ri(2,8);return{t:'aehn',q:`Auf einem Plan im Massstab 1 : ${M} ist ein Zimmer ${w} cm breit und ${h} cm lang. Wie gross ist die wirkliche Fläche in m²?`,a:w*M/100*h*M/100,u:'m²',tip:'Der Massstab ist der Streckungsfaktor k für Längen. Flächen ändern sich um k².',s:[`Breite: ${w} cm · ${M} = ${w*M} cm = ${n2(w*M/100)} m`,`Länge: ${h} cm · ${M} = ${h*M} cm = ${n2(h*M/100)} m`,m(`A = ${n2(w*M/100)}·${n2(h*M/100)}`)]}}
+];
+
+/* ---------- App ---------- */
+const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+function init(){
+  const $=(s,e)=>(e||document).querySelector(s),$$=(s,e)=>[...(e||document).querySelectorAll(s)];
+  const tabs=['lernen','formeln','karten','ueben'];
+  const show=t=>{if(!tabs.includes(t))t='lernen';tabs.forEach(x=>{$('#v-'+x).hidden=x!==t;$('#t-'+x).setAttribute('aria-selected',String(x===t))})};
+  $$('.tab').forEach(b=>b.onclick=()=>{show(b.dataset.t);try{location.hash=b.dataset.t}catch(e){}window.scrollTo(0,0)});
+  window.addEventListener('hashchange',()=>show(location.hash.slice(1)));
+  show(location.hash.slice(1));
+
+  /* Lernen */
+  $('#v-lernen').innerHTML=`<div class="card plan"><h3 style="margin-top:0">Plan für heute Abend, etwa 2 Stunden</h3><ol>
+   <li><b>Lernen</b> (45 min): die neun Kapitel der Reihe nach, Regler bewegen, Beispiele auf Papier nachrechnen.</li>
+   <li><b>Formeln</b> (15 min): Umformungen verdecken und jede Formel auswendig aufschreiben.</li>
+   <li><b>Karten</b> (20 min): bis alle als gewusst markiert sind.</li>
+   <li><b>Üben</b> (40 min): mindestens 15 gemischte Aufgaben, bei Fehlern den Lösungsweg lesen.</li>
+   <li>Vor dem Schlafen die Karten noch einmal durchgehen.</li></ol></div>
+   <div class="chips" id="cnav">${CHAPS.map(c=>`<button class="chip" data-c="${c.id}">${c.t}</button>`).join('')}</div>`+
+   CHAPS.map(c=>`<section class="chap" id="c-${c.id}"><h2>${c.t}</h2>${c.h()}<label class="done"><input type="checkbox" id="done-${c.id}"> Kann ich</label></section>`).join('');
+  $$('#cnav .chip').forEach(b=>b.onclick=()=>$('#c-'+b.dataset.c).scrollIntoView({behavior:'smooth',block:'start'}));
+  let done=LS.get('plani-done',[]);
+  const prog=()=>{$('#prog').textContent=done.length+' von '+CHAPS.length+' Kapiteln abgehakt.';$$('#cnav .chip').forEach(b=>b.classList.toggle('good',done.includes(b.dataset.c)))};
+  CHAPS.forEach(c=>{const cb=$('#done-'+c.id);cb.checked=done.includes(c.id);cb.onchange=()=>{done=done.filter(x=>x!==c.id);if(cb.checked)done.push(c.id);LS.set('plani-done',done);prog()}});
+  prog();
+
+  /* Kreis-Begriffe */
+  let quiz=false,target=null;
+  const sel=k=>{$$('#kf .pt').forEach(g=>g.classList.toggle('on',g.dataset.p===k))};
+  const showDef=k=>{const p=PARTS.find(x=>x[0]===k);sel(k);$$('#kchips .chip').forEach(b=>b.classList.toggle('on',b.dataset.k===k));$('#kdef').innerHTML=`<b>${p[1]}</b><br>${p[2]}`};
+  const ask=()=>{let k;do{k=pick(PARTS)[0]}while(k===target);target=k;sel(k);$$('#kchips .chip').forEach(b=>b.classList.remove('on'));$('#kdef').innerHTML='<b>Welcher Teil ist markiert?</b><br>Tippe unten auf den richtigen Begriff.'};
+  $$('#kchips .chip').forEach(b=>b.onclick=()=>{
+    if(!quiz)return showDef(b.dataset.k);
+    const p=PARTS.find(x=>x[0]===target);
+    if(b.dataset.k===target){$('#kdef').innerHTML=`<b style="color:var(--ok)">Richtig: ${p[1]}</b><br>${p[2]}`;setTimeout(()=>{if(quiz)ask()},1600)}
+    else $('#kdef').innerHTML=`<b style="color:var(--bad)">Das ist nicht ${b.textContent}.</b><br>Schau nochmals hin und versuche es erneut.`;
+  });
+  $('#kquiz').onclick=()=>{quiz=!quiz;$('#kquiz').textContent=quiz?'Test beenden':'Teste mich: Welcher Teil ist markiert?';quiz?ask():showDef('radius')};
+  showDef('radius');
+
+  /* Sektor */
+  const sek=()=>{const al=+$('#s-al').value,r=+$('#s-r').value,b=2*PI*r*al/360,A=PI*r*r*al/360;
+    $('#sf').innerHTML=figSektor(al,r);$('#s-alo').textContent=al+'°';$('#s-ro').textContent=r+' cm';
+    $('#s-live').innerHTML=`<div>Anteil: ${m(`{${al}°|360°} ≈ ${n2(al/360*100)} %`)}</div><div>${m(`b = {2·π·${r}·${al}°|360°} ≈ ${n2(b)} #cm`)}</div><div>${m(`A_S = {π·${r}^2·${al}°|360°} ≈ ${n2(A)} #cm^2`)}</div><div>Kontrolle: ${m(`{b·r|2} = {${n2(b)}·${r}|2} ≈ ${n2(b*r/2)} #cm^2`)}</div>`};
+  $('#s-al').oninput=sek;$('#s-r').oninput=sek;sek();
+
+  /* Strahlensaetze */
+  const st1=()=>{const s=+$('#f1-s').value;$('#f1').innerHTML=figStrahl(1,s);$('#f1-o').textContent=n2(s);
+    $('#f1-live').innerHTML=`<div>${m(`~SA~ : ~SA'~ = 8 : ${n2(s)} ≈ ${n2(8/s)}`)}</div><div>${m(`~SB~ : ~SB'~ = 10 : ${n2(s*1.25)} ≈ ${n2(8/s)}`)}</div><div>${m(`~SB'~ = {${n2(s)}·10|8} = ${n2(s*1.25)}`)}</div>`};
+  const st2=()=>{const s=+$('#f2-s').value;$('#f2').innerHTML=figStrahl(2,s);$('#f2-o').textContent=n2(s);
+    $('#f2-live').innerHTML=`<div>${m(`~SA~ : ~SA'~ = 8 : ${n2(s)} ≈ ${n2(8/s)}`)}</div><div>${m(`~AB~ : ~A'B'~ = 7 : ${n2(7*s/8)} ≈ ${n2(8/s)}`)}</div><div>${m(`~A'B'~ = {7·${n2(s)}|8} = ${n2(7*s/8)}`)}</div>`};
+  $('#f1-s').oninput=st1;$('#f2-s').oninput=st2;st1();st2();
+
+  /* Streckung */
+  const sk=()=>{const k=+$('#fk-s').value;$('#fk').innerHTML=figStreck(k);$('#fk-o').textContent='k = '+n2(k);
+    $('#fk-live').innerHTML=`<div>Seite: ${m(`~A'B'~ = k·~AB~ = ${n2(k)}·5 = ${n2(5*k)} #cm`)}</div><div>Fläche: ${m(`A' = k^2·A = ${n2(k*k)}·6 = ${n2(6*k*k)} #cm^2`)}</div><div>Winkel: unverändert</div>`};
+  $('#fk-s').oninput=sk;sk();
+
+  /* Formeln */
+  $('#v-formeln').innerHTML=`<div class="card"><h2>So formst du jede Formel um</h2>
+   <ol><li>Bruch weg: beide Seiten mit dem Nenner multiplizieren.</li><li>Alles, was bei der gesuchten Grösse steht, auf die andere Seite bringen: durch die Faktoren teilen.</li><li>Steht die Grösse im Quadrat, zuletzt die Wurzel ziehen.</li></ol>
+   <h3>Vorgemacht: Sektorformel nach r</h3>
+   <ul class="steps"><li>${m('A_S = {π·r^2·α|360°}')}</li><li>Mal 360°: ${m('A_S·360° = π·r^2·α')}</li><li>Durch π·α: ${m('r^2 = {A_S·360°|π·α}')}</li><li>Wurzel: ${m('r = √[{A_S·360°|π·α}]')}</li></ul>
+   <div class="row"><button class="btn pri" id="cov">Umformungen verdecken</button></div>
+   <p class="sub" style="margin:0">Verdeckt: Formel im Kopf umstellen, dann antippen und vergleichen.</p></div>
+   <div id="flist">`+FORMS.map(F=>`<div class="card"><h3 style="margin-top:0">${F.n}</h3>${mb(F.b)}<ul class="forms">${F.f.map(x=>`<li class="sol">${m(x[0])}<span class="how">${x[1]}</span></li>`).join('')}</ul></div>`).join('')+'</div>';
+  $('#cov').onclick=()=>{const on=$('#flist').classList.toggle('cover');$$('#flist .sol').forEach(e=>e.classList.remove('show'));$('#cov').textContent=on?'Umformungen aufdecken':'Umformungen verdecken'};
+  $$('#flist .sol').forEach(e=>e.onclick=()=>e.classList.toggle('show'));
+
+  /* Karten */
+  let known=new Set(LS.get('plani-known',[])),queue=[],flip=false;
+  const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=ri(0,i);[a[i],a[j]]=[a[j],a[i]]}return a};
+  const fill=()=>{queue=shuffle(CARDS.map((c,i)=>i).filter(i=>!known.has(i)))};
+  const card=()=>{const V=$('#v-karten'),n=CARDS.length,k=known.size;
+    let h=`<div class="bar"><i style="width:${k/n*100}%"></i></div><p class="stat">${k} von ${n} gewusst, ${queue.length} im Stapel</p>`;
+    if(!queue.length)h+=`<div class="card fc" style="cursor:default"><div class="q">Alle Karten gewusst.</div><div class="hint">Geh sie später am Abend nochmals durch.</div></div><div class="row"><button class="btn pri" id="fc-reset">Stapel neu mischen</button></div>`;
+    else{const c=CARDS[queue[0]];
+      h+=`<div class="card fc" id="fc" tabindex="0" role="button"><div class="q">${c[0]}</div>${flip?`<div class="a">${c[1]}</div>`:'<div class="hint">Antwort laut sagen oder aufschreiben, dann antippen.</div>'}</div>`;
+      h+=flip?`<div class="row"><button class="btn" id="fc-no">Nochmal</button><button class="btn pri" id="fc-yes">Gewusst</button></div>`:`<div class="row"><button class="btn pri" id="fc-show">Antwort zeigen</button></div>`;
+      h+=`<div class="row"><button class="btn" id="fc-reset">Alle Karten zurücksetzen</button></div>`}
+    V.innerHTML=h;
+    const tg=()=>{flip=!flip;card()};
+    if($('#fc')){$('#fc').onclick=tg;$('#fc').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();tg()}}}
+    if($('#fc-show'))$('#fc-show').onclick=tg;
+    if($('#fc-yes'))$('#fc-yes').onclick=()=>{known.add(queue.shift());LS.set('plani-known',[...known]);flip=false;card()};
+    if($('#fc-no'))$('#fc-no').onclick=()=>{const c=queue.shift();queue.splice(Math.min(3,queue.length),0,c);flip=false;card()};
+    $('#fc-reset').onclick=()=>{known=new Set();LS.set('plani-known',[]);fill();flip=false;card()};
+  };
+  fill();card();
+
+  /* Ueben */
+  let topic='alle',cur=null,tried=false,stat={ok:0,n:0},last=-1;
+  $('#v-ueben').innerHTML=`<div class="chips wrapc" id="u-f">${TOPICS.map(t=>`<button class="chip" data-t="${t[0]}">${t[1]}</button>`).join('')}</div>
+   <div class="card"><div id="u-q"></div>
+   <div class="inrow"><input id="u-in" inputmode="decimal" autocomplete="off" aria-label="Deine Antwort" placeholder="Resultat"><span id="u-u"></span></div>
+   <div class="fb" id="u-fb"></div>
+   <div class="row"><button class="btn pri" id="u-chk">Prüfen</button><button class="btn" id="u-tip">Tipp</button></div>
+   <div class="row"><button class="btn" id="u-sol">Lösungsweg</button><button class="btn" id="u-nx">Nächste Aufgabe</button></div>
+   <div id="u-x"></div></div>
+   <p class="stat" id="u-st"></p><p class="sub">Resultate auf zwei Dezimalen runden, mit der π-Taste rechnen. Komma oder Punkt sind beide in Ordnung.</p>`;
+  const stt=()=>{$('#u-st').textContent=stat.n?`${stat.ok} von ${stat.n} im ersten Versuch richtig`:'Noch keine Aufgabe gelöst'};
+  const next=()=>{let pool=TASKS.map((g,i)=>[g,i]).filter(x=>topic==='alle'||x[0]().t===topic),c;
+    do{c=pick(pool)}while(pool.length>1&&c[1]===last);last=c[1];cur=c[0]();tried=false;
+    $('#u-q').innerHTML='<p>'+cur.q+'</p>';$('#u-u').textContent=cur.u;$('#u-in').value='';$('#u-fb').textContent='';$('#u-fb').className='fb';$('#u-x').innerHTML=''};
+  const sol=()=>{$('#u-x').innerHTML=`<h3>Lösungsweg</h3><ul class="steps">${cur.s.map(x=>`<li>${x}</li>`).join('')}<li><b>Resultat: ≈ ${n2(cur.a)} ${cur.u}</b></li></ul>`};
+  const chk=()=>{const mt=$('#u-in').value.replace(',','.').match(/-?\d+(\.\d+)?/),fb=$('#u-fb');
+    if(!mt){fb.className='fb bad';fb.textContent='Gib zuerst eine Zahl ein.';return}
+    const ok=Math.abs(+mt[0]-cur.a)<=Math.max(.015,Math.abs(cur.a)*.005);
+    if(!tried){tried=true;stat.n++;if(ok)stat.ok++;stt()}
+    if(ok){fb.className='fb ok';fb.textContent=`Richtig. Genau: ${n2(cur.a)} ${cur.u}`;sol()}
+    else{fb.className='fb bad';fb.textContent='Noch nicht. Hol dir einen Tipp oder versuche es nochmals.'}};
+  $('#u-chk').onclick=chk;$('#u-in').onkeydown=e=>{if(e.key==='Enter')chk()};
+  $('#u-tip').onclick=()=>{$('#u-x').innerHTML=`<div class="hook"><b>Tipp:</b> ${cur.tip}</div>`};
+  $('#u-sol').onclick=()=>{if(!tried){tried=true;stat.n++;stt()}sol()};
+  $('#u-nx').onclick=next;
+  $$('#u-f .chip').forEach(b=>b.onclick=()=>{topic=b.dataset.t;$$('#u-f .chip').forEach(x=>x.classList.toggle('on',x===b));next()});
+  $('#u-f .chip').classList.add('on');stt();next();
+}
+if(typeof document!=='undefined')init();
+else if(typeof module!=='undefined')module.exports={m,TASKS,CHAPS,CARDS,FORMS,figSektor,figStrahl,figStreck};
+</script>
+
+</body></html>

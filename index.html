@@ -1,0 +1,577 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Webserver Dashboard</title>
+
+<style>
+:root {
+    --bg: #0f1420;
+    --surface: #192233;
+    --surface-hover: #25334b;
+    --border: #2b3950;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #718cff;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Inter, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+}
+
+header {
+    padding: 30px 5%;
+    background: #172033;
+    border-bottom: 1px solid var(--border);
+}
+
+.header-content {
+    max-width: 1500px;
+    margin: auto;
+}
+
+header h1 {
+    margin: 0 0 8px;
+    font-size: 27px;
+}
+
+header p {
+    margin: 0;
+    color: var(--muted);
+}
+
+main {
+    max-width: 1500px;
+    margin: auto;
+    padding: 30px 5%;
+}
+
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 25px;
+}
+
+input {
+    flex: 1;
+    min-width: 200px;
+    padding: 13px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    color: white;
+    font-size: 14px;
+    outline: none;
+}
+
+input:focus {
+    border-color: var(--accent);
+}
+
+button {
+    padding: 12px 18px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: white;
+    border-radius: 9px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: var(--surface-hover);
+}
+
+.primary {
+    background: #536ee8;
+    border-color: #536ee8;
+}
+
+#breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 30px;
+    color: var(--muted);
+    font-size: 14px;
+}
+
+#breadcrumb span {
+    cursor: pointer;
+}
+
+#breadcrumb span:hover {
+    color: var(--accent);
+}
+
+.section {
+    margin-top: 30px;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.section-title h2 {
+    font-size: 15px;
+    color: #cbd5e1;
+    letter-spacing: 1px;
+}
+
+.count {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(
+        auto-fill,
+        minmax(200px, 1fr)
+    );
+    gap: 16px;
+}
+
+.card {
+    position: relative;
+    padding: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: .2s;
+    min-width: 0;
+}
+
+.card:hover {
+    background: var(--surface-hover);
+    border-color: var(--accent);
+    transform: translateY(-3px);
+}
+
+.card-icon {
+    font-size: 32px;
+    margin-bottom: 15px;
+}
+
+.card-name {
+    font-weight: 600;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+}
+
+.card-meta {
+    margin-top: 9px;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.empty {
+    padding: 20px;
+    color: var(--muted);
+    background: var(--surface);
+    border-radius: 10px;
+    font-size: 13px;
+}
+
+#status {
+    margin-top: 35px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.error {
+    color: #ff7777;
+}
+
+footer {
+    text-align: center;
+    padding: 25px;
+    color: #64748b;
+    font-size: 11px;
+}
+
+@media(max-width: 600px) {
+    .toolbar {
+        flex-direction: column;
+    }
+
+    .toolbar button {
+        width: 100%;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <div class="header-content">
+        <h1>🖥️ Webserver Dashboard</h1>
+        <p>Automatic NGINX Directory Explorer</p>
+    </div>
+</header>
+
+<main>
+
+    <div class="toolbar">
+        <input
+            type="search"
+            id="search"
+            placeholder="🔍 Search folders and HTML files..."
+        >
+
+        <button onclick="loadDirectory()">
+            ↻ Refresh
+        </button>
+
+        <button onclick="goBack()">
+            ← Back
+        </button>
+
+        <button class="primary" onclick="goHome()">
+            🏠 Home
+        </button>
+    </div>
+
+    <div id="breadcrumb"></div>
+
+    <section class="section">
+        <div class="section-title">
+            <h2>📁 FOLDERS</h2>
+            <span class="count" id="folderCount">0</span>
+        </div>
+        <div class="grid" id="folders"></div>
+    </section>
+
+    <section class="section">
+        <div class="section-title">
+            <h2>🌐 HTML PAGES</h2>
+            <span class="count" id="fileCount">0</span>
+        </div>
+        <div class="grid" id="files"></div>
+    </section>
+
+    <div id="status">Initializing...</div>
+
+</main>
+
+<footer>
+    NGINX Directory API · Webserver Dashboard
+</footer>
+
+<script>
+
+const API = "/api/";
+
+let currentPath = "";
+let historyStack = [];
+let searchQuery = "";
+
+async function loadDirectory() {
+
+    const status = document.getElementById("status");
+
+    status.textContent = "Loading directory...";
+
+    try {
+
+        const response = await fetch(
+            API + currentPath,
+            { cache: "no-store" }
+        );
+
+        if (!response.ok) {
+            throw new Error("HTTP " + response.status);
+        }
+
+        const entries = await response.json();
+
+        const folders = [];
+        const files = [];
+
+        entries.forEach(item => {
+
+            if (!item.name || item.name === "../") {
+                return;
+            }
+
+            if (item.type === "directory") {
+                folders.push(item);
+            }
+
+            else if (
+                item.type === "file" &&
+                item.name.toLowerCase().endsWith(".html")
+            ) {
+                files.push(item);
+            }
+
+        });
+
+        folders.sort((a, b) =>
+            a.name.localeCompare(b.name)
+        );
+
+        files.sort((a, b) =>
+            a.name.localeCompare(b.name)
+        );
+
+        renderFolders(folders);
+        renderFiles(files);
+
+        renderBreadcrumb();
+
+        document.getElementById("folderCount").textContent =
+            folders.length;
+
+        document.getElementById("fileCount").textContent =
+            files.length;
+
+        status.textContent =
+            "Connected to NGINX API · " +
+            folders.length + " folders · " +
+            files.length + " HTML pages";
+
+        applySearch();
+
+    } catch (error) {
+
+        status.innerHTML =
+            '<span class="error">API Error: ' +
+            escapeHTML(error.message) +
+            '</span>';
+
+    }
+}
+
+function renderFolders(items) {
+
+    const container = document.getElementById("folders");
+
+    container.innerHTML = "";
+
+    if (!items.length) {
+        container.innerHTML =
+            '<div class="empty">No folders found.</div>';
+        return;
+    }
+
+    items.forEach(item => {
+
+        const card = createCard(
+            "📁",
+            item.name,
+            "Directory",
+            () => {
+                historyStack.push(currentPath);
+                currentPath += item.name;
+                loadDirectory();
+            }
+        );
+
+        container.appendChild(card);
+
+    });
+}
+
+function renderFiles(items) {
+
+    const container = document.getElementById("files");
+
+    container.innerHTML = "";
+
+    if (!items.length) {
+        container.innerHTML =
+            '<div class="empty">No HTML files found.</div>';
+        return;
+    }
+
+    items.forEach(item => {
+
+        const card = createCard(
+            "🌐",
+            item.name,
+            formatSize(item.size),
+            () => {
+                const url = "/" +
+                    encodePath(currentPath + item.name);
+
+                window.open(url, "_blank");
+            }
+        );
+
+        container.appendChild(card);
+
+    });
+}
+
+function createCard(icon, name, meta, callback) {
+
+    const card = document.createElement("div");
+    card.className = "card";
+
+    const iconElement = document.createElement("div");
+    iconElement.className = "card-icon";
+    iconElement.textContent = icon;
+
+    const nameElement = document.createElement("div");
+    nameElement.className = "card-name";
+    nameElement.textContent = name;
+
+    const metaElement = document.createElement("div");
+    metaElement.className = "card-meta";
+    metaElement.textContent = meta;
+
+    card.append(
+        iconElement,
+        nameElement,
+        metaElement
+    );
+
+    card.dataset.name = name.toLowerCase();
+
+    card.onclick = callback;
+
+    return card;
+}
+
+function renderBreadcrumb() {
+
+    const container = document.getElementById("breadcrumb");
+
+    container.innerHTML = "";
+
+    const home = document.createElement("span");
+    home.textContent = "🏠 Home";
+
+    home.onclick = goHome;
+
+    container.appendChild(home);
+
+    let path = "";
+
+    currentPath.split("/").filter(Boolean).forEach(part => {
+
+        path += part + "/";
+
+        const separator = document.createElement("span");
+        separator.textContent = " / ";
+
+        container.appendChild(separator);
+
+        const link = document.createElement("span");
+        link.textContent = part;
+
+        const destination = path;
+
+        link.onclick = () => {
+            currentPath = destination;
+            historyStack = [];
+            loadDirectory();
+        };
+
+        container.appendChild(link);
+
+    });
+}
+
+function goBack() {
+
+    if (!historyStack.length) return;
+
+    currentPath = historyStack.pop();
+
+    loadDirectory();
+}
+
+function goHome() {
+
+    currentPath = "";
+    historyStack = [];
+
+    loadDirectory();
+}
+
+function applySearch() {
+
+    document.querySelectorAll(".card").forEach(card => {
+
+        card.style.display =
+            card.dataset.name.includes(searchQuery)
+            ? ""
+            : "none";
+
+    });
+
+}
+
+document.getElementById("search").addEventListener(
+    "input",
+    event => {
+
+        searchQuery = event.target.value.toLowerCase();
+
+        applySearch();
+
+    }
+);
+
+function formatSize(size) {
+
+    if (!size) return "HTML Document";
+
+    const units = ["B", "KB", "MB", "GB"];
+
+    let value = Number(size);
+    let index = 0;
+
+    while (value >= 1024 && index < units.length - 1) {
+        value /= 1024;
+        index++;
+    }
+
+    return value.toFixed(1) + " " + units[index];
+}
+
+function encodePath(path) {
+
+    return path.split("/").map(encodeURIComponent).join("/");
+}
+
+function escapeHTML(value) {
+
+    return String(value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    })[char]);
+
+}
+
+// Initialisierung
+loadDirectory();
+
+// Optional: Alle 60 Sekunden aktualisieren
+setInterval(loadDirectory, 60000);
+
+</script>
+
+</body>
+</html>

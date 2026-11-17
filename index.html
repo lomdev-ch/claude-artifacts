@@ -8,210 +8,410 @@
 
 <style>
 :root {
-    --bg: #0f1420;
-    --surface: #192233;
-    --surface-hover: #25334b;
-    --border: #2b3950;
-    --text: #f1f5f9;
-    --muted: #94a3b8;
-    --accent: #718cff;
+    color-scheme: dark;
+
+    --bg: #11151b;
+    --header: #171d25;
+    --surface: #1b232d;
+    --surface-hover: #222d39;
+    --border: #303b48;
+
+    --text: #e7ebef;
+    --muted: #9ba7b4;
+    --subtle: #758291;
+
+    --accent: #8da6b8;
+    --accent-hover: #aec2d0;
+
+    --danger: #e58c85;
+
+    --radius: 10px;
 }
 
 * {
     box-sizing: border-box;
 }
 
-body {
-    margin: 0;
-    font-family: Inter, Arial, sans-serif;
-    background: var(--bg);
-    color: var(--text);
+html {
+    min-height: 100%;
+    scroll-behavior: smooth;
 }
 
+body {
+    margin: 0;
+    min-height: 100vh;
+    font-family:
+        Inter,
+        "Segoe UI",
+        Roboto,
+        Helvetica,
+        Arial,
+        sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Header */
+
 header {
-    padding: 30px 5%;
-    background: #172033;
+    padding: 27px 5%;
+    background: var(--header);
     border-bottom: 1px solid var(--border);
 }
 
 .header-content {
     max-width: 1500px;
-    margin: auto;
+    margin: 0 auto;
 }
 
 header h1 {
-    margin: 0 0 8px;
-    font-size: 27px;
+    margin: 0 0 4px;
+    font-size: 23px;
+    font-weight: 650;
+    letter-spacing: -0.5px;
 }
 
 header p {
     margin: 0;
     color: var(--muted);
+    font-size: 13px;
 }
 
+/* Main layout */
+
 main {
+    width: 100%;
     max-width: 1500px;
-    margin: auto;
-    padding: 30px 5%;
+    margin: 0 auto;
+    padding: 30px 5% 55px;
 }
+
+/* Toolbar */
 
 .toolbar {
     display: flex;
+    align-items: center;
     flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 25px;
+    gap: 10px;
+    margin-bottom: 27px;
 }
 
 input {
     flex: 1;
-    min-width: 200px;
-    padding: 13px 16px;
+    min-width: 220px;
+    min-height: 44px;
+    padding: 11px 15px;
+
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 9px;
-    color: white;
-    font-size: 14px;
+    border-radius: var(--radius);
+
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+
     outline: none;
+    transition: border-color .15s ease,
+                background .15s ease;
+}
+
+input::placeholder {
+    color: var(--subtle);
 }
 
 input:focus {
     border-color: var(--accent);
+    background: #202a35;
 }
 
 button {
-    padding: 12px 18px;
-    border: 1px solid var(--border);
+    min-height: 44px;
+    padding: 10px 16px;
+
     background: var(--surface);
-    color: white;
-    border-radius: 9px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 550;
+
     cursor: pointer;
+    transition: background .15s ease,
+                border-color .15s ease,
+                color .15s ease;
 }
 
 button:hover {
     background: var(--surface-hover);
+    border-color: #536273;
+}
+
+button:active {
+    background: #293644;
+}
+
+button:focus-visible,
+.card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
 }
 
 .primary {
-    background: #536ee8;
-    border-color: #536ee8;
+    background: #354858;
+    border-color: #465e70;
+    color: #f0f4f6;
 }
+
+.primary:hover {
+    background: #405769;
+    border-color: #60798c;
+}
+
+/* Breadcrumb navigation */
 
 #breadcrumb {
     display: flex;
+    align-items: center;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 30px;
+    gap: 7px;
+
+    margin: 0 0 34px;
     color: var(--muted);
-    font-size: 14px;
+    font-size: 13px;
 }
 
 #breadcrumb span {
     cursor: pointer;
+    transition: color .15s ease;
 }
 
 #breadcrumb span:hover {
-    color: var(--accent);
+    color: var(--accent-hover);
 }
 
+/* Sections */
+
 .section {
-    margin-top: 30px;
+    margin-top: 35px;
 }
 
 .section-title {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 16px;
+    margin-bottom: 17px;
 }
 
 .section-title h2 {
-    font-size: 15px;
-    color: #cbd5e1;
+    margin: 0;
+    color: #c5cdd5;
+    font-size: 13px;
+    font-weight: 650;
     letter-spacing: 1px;
 }
 
 .count {
-    color: var(--muted);
+    color: var(--subtle);
     font-size: 12px;
+    font-variant-numeric: tabular-nums;
 }
+
+/* Directory grid */
 
 .grid {
     display: grid;
     grid-template-columns: repeat(
         auto-fill,
-        minmax(200px, 1fr)
+        minmax(210px, 1fr)
     );
-    gap: 16px;
+    gap: 13px;
 }
+
+/* File and folder cards */
 
 .card {
     position: relative;
-    padding: 20px;
+    min-width: 0;
+    min-height: 150px;
+    padding: 19px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 11px;
+
     cursor: pointer;
-    transition: .2s;
-    min-width: 0;
+
+    transition:
+        background .16s ease,
+        border-color .16s ease,
+        transform .16s ease;
 }
 
 .card:hover {
     background: var(--surface-hover);
-    border-color: var(--accent);
-    transform: translateY(-3px);
+    border-color: #536273;
+    transform: translateY(-2px);
+}
+
+.card:active {
+    transform: translateY(0);
 }
 
 .card-icon {
-    font-size: 32px;
-    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 43px;
+    margin-bottom: 13px;
+
+    font-size: 29px;
+    line-height: 1;
 }
 
 .card-name {
-    font-weight: 600;
+    max-width: 100%;
+    color: var(--text);
     font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
     overflow-wrap: anywhere;
 }
 
 .card-meta {
-    margin-top: 9px;
-    font-size: 11px;
-    color: var(--muted);
-}
-
-.empty {
-    padding: 20px;
-    color: var(--muted);
-    background: var(--surface);
-    border-radius: 10px;
-    font-size: 13px;
-}
-
-#status {
-    margin-top: 35px;
-    padding-top: 20px;
-    border-top: 1px solid var(--border);
+    margin-top: 6px;
     color: var(--muted);
     font-size: 12px;
 }
 
-.error {
-    color: #ff7777;
+/* Empty state */
+
+.empty {
+    grid-column: 1 / -1;
+    padding: 24px;
+
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
 }
+
+/* Status */
+
+#status {
+    margin-top: 38px;
+    padding-top: 17px;
+
+    border-top: 1px solid var(--border);
+
+    color: var(--subtle);
+    font-size: 12px;
+}
+
+.error {
+    color: var(--danger);
+}
+
+/* Footer */
 
 footer {
-    text-align: center;
-    padding: 25px;
-    color: #64748b;
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 20px 5% 27px;
+
+    border-top: 1px solid var(--border);
+
+    color: var(--subtle);
     font-size: 11px;
+    text-align: center;
 }
 
-@media(max-width: 600px) {
+/* Responsive layout */
+
+@media (min-width: 1100px) {
+    .grid {
+        grid-template-columns: repeat(
+            auto-fill,
+            minmax(230px, 1fr)
+        );
+    }
+}
+
+@media (max-width: 700px) {
+    header {
+        padding: 23px 20px;
+    }
+
+    main {
+        padding: 22px 20px 40px;
+    }
+
     .toolbar {
-        flex-direction: column;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .toolbar input {
+        grid-column: 1 / -1;
+        width: 100%;
     }
 
     .toolbar button {
         width: 100%;
+        padding: 10px 8px;
+    }
+
+    .grid {
+        grid-template-columns: repeat(
+            auto-fill,
+            minmax(145px, 1fr)
+        );
+        gap: 10px;
+    }
+
+    .card {
+        min-height: 135px;
+        padding: 15px;
+    }
+
+    .section {
+        margin-top: 29px;
+    }
+}
+
+@media (max-width: 380px) {
+    .toolbar {
+        grid-template-columns: 1fr;
+    }
+
+    .toolbar input {
+        grid-column: auto;
+    }
+
+    .grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
     }
 }
 </style>
@@ -221,8 +421,7 @@ footer {
 
 <header>
     <div class="header-content">
-        <h1>🖥️ Webserver Dashboard</h1>
-        <p>Automatic NGINX Directory Explorer</p>
+        <h1>🖥️ Claude Dashboard</h1>
     </div>
 </header>
 
@@ -271,7 +470,7 @@ footer {
 </main>
 
 <footer>
-    NGINX Directory API · Webserver Dashboard
+    NGINX Directory API · Claude Dashboard
 </footer>
 
 <script>

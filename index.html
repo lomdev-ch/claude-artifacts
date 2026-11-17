@@ -316,7 +316,8 @@ async function loadDirectory() {
 
             else if (
                 item.type === "file" &&
-                item.name.toLowerCase().endsWith(".html")
+                item.name.toLowerCase().endsWith(".html") && 
+                item.name.toLowerCase().isEqual("index.html") === false
             ) {
                 files.push(item);
             }

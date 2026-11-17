@@ -359,10 +359,9 @@ async function loadDirectory() {
     }
 }
 
+
 function renderFolders(items) {
-
     const container = document.getElementById("folders");
-
     container.innerHTML = "";
 
     if (!items.length) {
@@ -372,20 +371,25 @@ function renderFolders(items) {
     }
 
     items.forEach(item => {
+        const folderName = String(item.name)
+            .replace(/^\/+|\/+$/g, "");
 
         const card = createCard(
             "📁",
-            item.name,
+            folderName,
             "Directory",
             () => {
                 historyStack.push(currentPath);
-                currentPath += item.name;
+
+                currentPath =
+                    currentPath.replace(/\/+$/, "") +
+                    "/" + folderName + "/";
+
                 loadDirectory();
             }
         );
 
         container.appendChild(card);
-
     });
 }
 

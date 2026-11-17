@@ -359,7 +359,6 @@ async function loadDirectory() {
     }
 }
 
-
 function renderFolders(items) {
     const container = document.getElementById("folders");
     container.innerHTML = "";
@@ -381,9 +380,10 @@ function renderFolders(items) {
             () => {
                 historyStack.push(currentPath);
 
-                currentPath =
-                    currentPath.replace(/\/+$/, "") +
-                    "/" + folderName + "/";
+                const base = currentPath.replace(/^\/+|\/+$/g, "");
+
+                currentPath = (base ? base + "/" : "")
+                    + folderName + "/";
 
                 loadDirectory();
             }
@@ -392,6 +392,7 @@ function renderFolders(items) {
         container.appendChild(card);
     });
 }
+
 
 function renderFiles(items) {
 
